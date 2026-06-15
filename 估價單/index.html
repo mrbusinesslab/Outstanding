@@ -384,6 +384,17 @@ window.addEventListener('load', function() {
   document.getElementById('quoteDate').value = fmt(today);
   var exp = new Date(today); exp.setDate(exp.getDate() + 30);
   document.getElementById('expireDate').value = fmt(exp);
+
+  // 估價單日期變動時，失效日自動跳 30 天後
+  document.getElementById('quoteDate').addEventListener('change', function() {
+    var d = new Date(this.value);
+    if (!isNaN(d.getTime())) {
+      d.setDate(d.getDate() + 30);
+      document.getElementById('expireDate').value = fmt(d);
+    }
+    triggerLivePreview();
+  });
+
   addWork();
   document.querySelectorAll('.container input, .container textarea, .container select').forEach(function(el) {
     el.addEventListener('input', triggerLivePreview);
@@ -833,110 +844,109 @@ function generatePDF(isPreview) {
     ctx.font = 'bold 17px ' + ff; ctx.fillStyle = BRAND; ctx.textAlign = 'right';
     ctx.fillText('$' + deposit.toLocaleString(), PW - m - 8, sy + 36);
 
-    // ── 簽名欄 ──
+    // ── 簽名欄（承攬方左、委託方右） ──
     var sigTop = y + payH + 18;
-    var sigW = Math.floor(cw * 0.44);
+    var sigW = Math.floor((cw - 16) / 2);
     var sigH = 76;
 
+    // 承攬方（左）
     ctx.fillStyle = '#fdfcfc'; ctx.fillRect(m, sigTop, sigW, sigH);
     ctx.strokeStyle = '#bbb'; ctx.lineWidth = 1; ctx.strokeRect(m, sigTop, sigW, sigH);
     ctx.font = 'bold 11px ' + ff; ctx.fillStyle = '#555'; ctx.textAlign = 'left';
-    ctx.fillText('委託方簽名', m + 10, sigTop + 17);
+    ctx.fillText('承攬方簽名', m + 10, sigTop + 17);
     ctx.strokeStyle = '#3d3d3d'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(m + 10, sigTop + 56); ctx.lineTo(m + sigW - 10, sigTop + 56); ctx.stroke();
     ctx.font = '10px ' + ff; ctx.fillStyle = '#bbb';
-    ctx.fillText('簽名／蓋章', m + 10, sigTop + 68);
+    ctx.fillText('蘇祺傑', m + 10, sigTop + 68);
 
-    // 中華民國年月日（字元間距放寬）
-    var rocY = sigTop + sigH + 24;
-    ctx.font = '12px ' + ff; ctx.fillStyle = '#666'; ctx.textAlign = 'left';
-    var rocStr = '中 華 民 國　　　　　　　　年　　　　　　　　月　　　　　　　　日';
-    var rocX = m + sigW + 20;
-    ctx.fillText(rocStr, rocX, rocY);
+    // 委託方（右）
+    var sig2X = m + sigW + 16;
+    ctx.fillStyle = '#fdfcfc'; ctx.fillRect(sig2X, sigTop, sigW, sigH);
+    ctx.strokeStyle = '#bbb'; ctx.lineWidth = 1; ctx.strokeRect(sig2X, sigTop, sigW, sigH);
+    ctx.font = 'bold 11px ' + ff; ctx.fillStyle = '#555'; ctx.textAlign = 'left';
+    ctx.fillText('委託方簽名', sig2X + 10, sigTop + 17);
+    ctx.strokeStyle = '#3d3d3d'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(sig2X + 10, sigTop + 56); ctx.lineTo(sig2X + sigW - 10, sigTop + 56); ctx.stroke();
+    ctx.font = '10px ' + ff; ctx.fillStyle = '#bbb';
+    ctx.fillText('簽名／蓋章', sig2X + 10, sigTop + 68);
 
-    // ── 浮水印（最底圖層，在內容之上但置於整頁） ──
-    // 注意：因 canvas 是逐步繪製，浮水印需在最後疊上
+    // 中華民國年月日（置中，「中華民國」四字間距加寬）
+    var rocY = sigTop + sigH + 26;
+    ctx.font = '12px ' + ff; ctx.fillStyle = '#666'; ctx.textAlign = 'center';
+    // 用 letterSpacing 效果：逐字繪製「中華民國」
+    var rocCenterX = PW / 2;
+    var rocLabel = '中　華　民　國';
+    var rocRight = '　　　　　　年　　　　　月　　　　　日';
+    var labelW = ctx.measureText(rocLabel).width;
+    var rightW = ctx.measureText(rocRight).width;
+    var totalW = labelW + rightW;
+    ctx.textAlign = 'left';
+    ctx.fillText(rocLabel + rocRight, rocCenterX - totalW / 2, rocY);
+
+    // ── 浮水印（destination-over → 底層；預覽和下載都套用） ──
     function applyWatermark(wmImg, targetCtx) {
       if (!wmImg) return;
       targetCtx.save();
       targetCtx.globalAlpha = 1.0;
-      targetCtx.globalCompositeOperation = 'destination-over'; // 放最底層
+      targetCtx.globalCompositeOperation = 'destination-over';
       targetCtx.drawImage(wmImg, 0, 0, PW, PH);
       targetCtx.restore();
     }
 
-    // ── 輸出 PDF ──
+    // ── 輸出 PDF（預覽 & 下載都用 pdf-lib 合併 terms.pdf） ──
     function finalizePDF(wmImg) {
       applyWatermark(wmImg, ctx);
 
-      try {
-        var jsPDFObj = window.jspdf ? window.jspdf.jsPDF : null;
-        if (!jsPDFObj) throw new Error('jsPDF 尚未載入，請確認網路連線後重新整理頁面');
-        var doc = new jsPDFObj({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-        doc.addImage(canvas.toDataURL('image/png', 1.0), 'PNG', 0, 0, 210, 297);
+      var jsPDFObj = window.jspdf ? window.jspdf.jsPDF : null;
+      if (!jsPDFObj) {
+        if (!isPreview) { msg.className = 'status-msg error'; msg.textContent = '❌ jsPDF 尚未載入'; btn.disabled = false; }
+        return;
+      }
+      var doc = new jsPDFObj({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      doc.addImage(canvas.toDataURL('image/png', 1.0), 'PNG', 0, 0, 210, 297);
+      var mainBytes = doc.output('arraybuffer');
 
-        // 附加 terms.pdf（如果存在）
-        function outputDoc() {
-          var blob = new Blob([doc.output('arraybuffer')], { type: 'application/pdf' });
-          var url = URL.createObjectURL(blob);
-          if (isPreview) {
-            document.getElementById('pdfPreviewer').src = url + '#toolbar=0&navpanes=0';
-            if (lastPreviewObjectURL) URL.revokeObjectURL(lastPreviewObjectURL);
-            lastPreviewObjectURL = url;
-          } else {
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = (document.getElementById('quoteDate').value || 'quote') + '_傑出油漆估價單.pdf';
-            a.click(); URL.revokeObjectURL(url);
-            msg.className = 'status-msg success'; msg.textContent = '✅ 估價單 PDF 已產生完成';
-          }
-          if (!isPreview) btn.disabled = false;
-        }
-
-        // 嘗試載入並附加 terms.pdf
-        if (!isPreview) {
-          fetch('terms.pdf')
-            .then(function(res) {
-              if (!res.ok) throw new Error('not found');
-              return res.arrayBuffer();
-            })
-            .then(function(termsBuf) {
-              // 用 pdf-lib 合併（如有載入）
-              if (window.PDFLib) {
-                var mainPdfBytes = doc.output('arraybuffer');
-                Promise.all([
-                  window.PDFLib.PDFDocument.load(mainPdfBytes),
-                  window.PDFLib.PDFDocument.load(termsBuf)
-                ]).then(function(docs) {
-                  var mainDoc = docs[0], termsDoc = docs[1];
-                  return termsDoc.copyPages(termsDoc, termsDoc.getPageIndices()).then(function(pages) {
-                    pages.forEach(function(p) { mainDoc.addPage(p); });
-                    return mainDoc.save();
-                  });
-                }).then(function(merged) {
-                  var blob = new Blob([merged], { type: 'application/pdf' });
-                  var url = URL.createObjectURL(blob);
-                  var a = document.createElement('a');
-                  a.href = url;
-                  a.download = (document.getElementById('quoteDate').value || 'quote') + '_傑出油漆估價單.pdf';
-                  a.click(); URL.revokeObjectURL(url);
-                  msg.className = 'status-msg success'; msg.textContent = '✅ 估價單 PDF（含條款）已產生完成';
-                  btn.disabled = false;
-                }).catch(function() { outputDoc(); });
-              } else { outputDoc(); }
-            })
-            .catch(function() { outputDoc(); });
+      function deliverBlob(finalBytes) {
+        var blob = new Blob([finalBytes], { type: 'application/pdf' });
+        var url = URL.createObjectURL(blob);
+        if (isPreview) {
+          document.getElementById('pdfPreviewer').src = url + '#toolbar=0&navpanes=0';
+          if (lastPreviewObjectURL) URL.revokeObjectURL(lastPreviewObjectURL);
+          lastPreviewObjectURL = url;
         } else {
-          outputDoc();
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = (document.getElementById('quoteDate').value || 'quote') + '_傑出油漆估價單.pdf';
+          a.click(); URL.revokeObjectURL(url);
+          msg.className = 'status-msg success'; msg.textContent = '✅ 估價單 PDF（含條款）已產生完成';
+          btn.disabled = false;
         }
-      } catch (err) {
-        if (!isPreview) { msg.className = 'status-msg error'; msg.textContent = '❌ 產生失敗：' + err.message; }
-        console.error(err);
-        if (!isPreview) btn.disabled = false;
+      }
+
+      // 嘗試合併 terms.pdf（預覽和下載都合併）
+      if (window.PDFLib) {
+        fetch('terms.pdf')
+          .then(function(res) { if (!res.ok) throw new Error('no terms'); return res.arrayBuffer(); })
+          .then(function(termsBuf) {
+            return Promise.all([
+              window.PDFLib.PDFDocument.load(mainBytes),
+              window.PDFLib.PDFDocument.load(termsBuf)
+            ]).then(function(docs) {
+              var mainDoc = docs[0], termsDoc = docs[1];
+              return termsDoc.copyPages(termsDoc, termsDoc.getPageIndices()).then(function(pages) {
+                pages.forEach(function(p) { mainDoc.addPage(p); });
+                return mainDoc.save();
+              });
+            });
+          })
+          .then(function(merged) { deliverBlob(merged); })
+          .catch(function() { deliverBlob(mainBytes); });
+      } else {
+        deliverBlob(mainBytes);
       }
     }
 
-    // 載入浮水印
+    // 載入浮水印 → 完成後呼叫 finalizePDF
     var wmImg = new Image();
     wmImg.onload = function() { finalizePDF(wmImg); };
     wmImg.onerror = function() { finalizePDF(null); };
