@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>傑出油漆｜估價單產生器</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Microsoft JhengHei','微軟正黑體',Arial,sans-serif; background: #f5f1ef; color: #1a1a1a; min-height: 100vh; }
@@ -65,8 +66,8 @@ input:focus, textarea:focus { outline: none; border-color: #c85c3e; background: 
   border-radius: 6px;
   min-height: 36px;
 }
-.content-item-row:nth-child(odd)  { background: #fdf5f3; }
-.content-item-row:nth-child(even) { background: #f8f8f8; }
+.content-item-row:nth-child(odd)  { background: #f7f7f7; }
+.content-item-row:nth-child(even) { background: #efefef; }
 
 /* 施工內容名稱 — 單行 */
 .content-name-input {
@@ -189,10 +190,6 @@ input:focus, textarea:focus { outline: none; border-color: #c85c3e; background: 
       <div class="card-title">📋 估價單資訊</div>
       <div class="form-grid">
         <div class="form-group">
-          <label>估價單編號</label>
-          <input type="text" id="quoteNo" placeholder="例：JC-202601-001">
-        </div>
-        <div class="form-group">
           <label>估價單日期</label>
           <input type="date" id="quoteDate">
         </div>
@@ -247,10 +244,10 @@ input:focus, textarea:focus { outline: none; border-color: #c85c3e; background: 
     </div>
 
     <div class="card">
-      <div class="card-title">💰 預約施工訂金</div>
+      <div class="card-title">💰 預付工程款</div>
       <div class="deposit-block">
         <div>
-          <div class="deposit-label">預約施工訂金</div>
+          <div class="deposit-label">預付工程款</div>
           <div class="deposit-sub">合計金額 × 30%</div>
         </div>
         <div class="deposit-amount" id="depositAmount">$0</div>
@@ -267,12 +264,6 @@ input:focus, textarea:focus { outline: none; border-color: #c85c3e; background: 
         <div class="bank-info">
           <strong>指定帳戶：</strong>中國信託－大里分行｜蘇祺傑　(822) 056540466093
         </div>
-      </div>
-      <div class="other-block">
-        <p><strong>其他事項：</strong></p>
-        <p>1. 本估價單有效期限為 30 日。</p>
-        <p>2. 價格已含人工、材料及運送費用。</p>
-        <p>3. 若施工中有額外需求或變更，將另行估價。</p>
       </div>
       <div style="margin-top:20px;">
         <div style="font-size:13px;color:#555;font-weight:600;margin-bottom:10px;">簽名確認欄</div>
@@ -307,60 +298,75 @@ input:focus, textarea:focus { outline: none; border-color: #c85c3e; background: 
 var UNITS = ['坪','尺','才','組','座','框','扇','天','尺','式','平方公尺','一面一色','平方米','—'];
 
 var PRICE_LIST = [
-  { group: '裝潢油漆', items: [
+  { group: '一、裝潢油漆 — 簡單修補', items: [
     { name: '水泥漆', unit: '坪', price: 300, remark: '' },
     { name: '乳膠漆', unit: '坪', price: 600, remark: '' },
-    { name: 'RC牆(水泥漆)', unit: '坪', price: 900, remark: '套批*2+研磨+水泥漆' },
-    { name: 'RC牆(乳膠漆)', unit: '坪', price: 1200, remark: '套批*2+研磨+乳膠漆' },
-    { name: '平釘(水泥漆)', unit: '坪', price: 1300, remark: 'AB膠+接縫抓土*2+套批+研磨+上漆' },
-    { name: '平釘(水泥漆)+造型', unit: '坪', price: 1500, remark: '' },
-    { name: '平釘(乳膠漆)', unit: '坪', price: 1600, remark: 'AB膠+接縫抓土*2+套批+研磨+上漆' },
-    { name: '平釘(乳膠漆)+造型', unit: '坪', price: 1800, remark: '' },
-    { name: '包管(水泥漆)', unit: '尺', price: 250, remark: 'AB膠+接縫抓土*2+套批+研磨+上漆' },
-    { name: '包管(水泥漆)+造型', unit: '尺', price: 350, remark: '' },
-    { name: '包管(乳膠漆)', unit: '尺', price: 300, remark: 'AB膠+接縫抓土*2+套批+研磨+上漆' },
-    { name: '包管(乳膠漆)+造型', unit: '尺', price: 400, remark: '' },
-    { name: '窗簾盒(水泥漆)', unit: '尺', price: 300, remark: '含封閉底漆' },
-    { name: '窗簾盒(乳膠漆)', unit: '尺', price: 350, remark: '含封閉底漆' },
-    { name: '裝潢油漆如有跳色(加價)', unit: '—', price: 0, remark: '尺+$20 / 坪+$100' },
   ]},
-  { group: '特殊漆', items: [
-    { name: '司曼特(無須整平)', unit: '坪', price: 5000, remark: '' },
-    { name: '司曼特(稀酸鈣起)', unit: '坪', price: 6000, remark: '' },
-    { name: '特殊、藝術漆(無須整平)', unit: '坪', price: 6000, remark: '' },
-    { name: '特殊、藝術漆(稀酸鈣起)', unit: '坪', price: 7000, remark: '' },
+  { group: '一、裝潢油漆 — RC牆', items: [
+    { name: 'RC牆（水泥漆）', unit: '坪', price: 900, remark: '套批2次＋研磨＋水泥漆' },
+    { name: 'RC牆（乳膠漆）', unit: '坪', price: 1200, remark: '套批2次＋研磨＋乳膠漆' },
   ]},
-  { group: '各種漆', items: [
+  { group: '一、裝潢油漆 — 平釘天花板', items: [
+    { name: '平釘（水泥漆）', unit: '坪', price: 1300, remark: 'AB膠＋接縫抓土2次＋套批＋研磨＋上漆' },
+    { name: '平釘（水泥漆）＋造型', unit: '坪', price: 1500, remark: 'AB膠＋接縫抓土2次＋套批＋研磨＋上漆' },
+    { name: '平釘（乳膠漆）', unit: '坪', price: 1600, remark: 'AB膠＋接縫抓土2次＋套批＋研磨＋上漆' },
+    { name: '平釘（乳膠漆）＋造型', unit: '坪', price: 1800, remark: 'AB膠＋接縫抓土2次＋套批＋研磨＋上漆' },
+  ]},
+  { group: '一、裝潢油漆 — 包管', items: [
+    { name: '包管（水泥漆）', unit: '尺', price: 250, remark: 'AB膠＋接縫抓土2次＋套批＋研磨＋上漆' },
+    { name: '包管（水泥漆）＋造型', unit: '尺', price: 350, remark: 'AB膠＋接縫抓土2次＋套批＋研磨＋上漆' },
+    { name: '包管（乳膠漆）', unit: '尺', price: 300, remark: 'AB膠＋接縫抓土2次＋套批＋研磨＋上漆' },
+    { name: '包管（乳膠漆）＋造型', unit: '尺', price: 400, remark: 'AB膠＋接縫抓土2次＋套批＋研磨＋上漆' },
+  ]},
+  { group: '一、裝潢油漆 — 窗簾盒', items: [
+    { name: '窗簾盒（水泥漆）', unit: '尺', price: 300, remark: '含封閉底漆' },
+    { name: '窗簾盒（乳膠漆）', unit: '尺', price: 350, remark: '含封閉底漆' },
+  ]},
+  { group: '一、裝潢油漆 — 跳色加價', items: [
+    { name: '跳色加價', unit: '尺', price: 20, remark: '每尺加價 $20' },
+    { name: '跳色加價', unit: '坪', price: 100, remark: '每坪加價 $100' },
+  ]},
+  { group: '二、特殊漆', items: [
+    { name: '司曼特（無須整平）', unit: '坪', price: 5000, remark: '' },
+    { name: '司曼特（矽酸鈣板起）', unit: '坪', price: 6000, remark: '' },
+    { name: '特殊／藝術漆（無須整平）', unit: '坪', price: 6000, remark: '' },
+    { name: '特殊／藝術漆（矽酸鈣板起）', unit: '坪', price: 7000, remark: '' },
+  ]},
+  { group: '三、各種漆類', items: [
     { name: '烤漆', unit: '才', price: 250, remark: '' },
-    { name: '晴雨漆', unit: '坪', price: 1500, remark: '防水底漆+晴雨漆*2' },
+    { name: '晴雨漆', unit: '坪', price: 1500, remark: '防水底漆＋晴雨漆2道' },
     { name: '石頭漆', unit: '坪', price: 7000, remark: '' },
     { name: '浪板漆', unit: '坪', price: 2000, remark: '' },
-    { name: '外牆彈性水泥漆', unit: '坪', price: 900, remark: '防水底漆+彈性水泥漆*2' },
-    { name: '屋頂倍剋漏', unit: '坪', price: 2000, remark: '清潔+防水底漆+倍剋漏*2' },
+    { name: '外牆彈性水泥漆', unit: '坪', price: 900, remark: '防水底漆＋彈性水泥漆2道' },
+    { name: '屋頂倍剋漏', unit: '坪', price: 2000, remark: '清潔＋防水底漆＋倍剋漏2道' },
   ]},
-  { group: '門', items: [
-    { name: '門框門片(亮漆)', unit: '組', price: 1800, remark: '' },
-    { name: '門框門片(烤漆)', unit: '組', price: 17000, remark: '' },
-    { name: '門框(亮漆)', unit: '組', price: 3000, remark: 'AB+批土*2' },
-    { name: '門框(烤漆)', unit: '座', price: 10000, remark: '烤漆+AB+批土' },
-    { name: '門片(亮漆)', unit: '組', price: 4000, remark: 'AB+批土*2' },
-    { name: '門片(烤漆)', unit: '座', price: 10000, remark: '烤漆+AB+批土' },
+  { group: '四、門片與門框 — 亮光漆／烤漆', items: [
+    { name: '門框門片（亮漆）', unit: '組', price: 1800, remark: '' },
+    { name: '門框門片（烤漆）', unit: '組', price: 17000, remark: '' },
   ]},
-  { group: '木皮', items: [
-    { name: '木皮(透明)', unit: '才', price: 150, remark: '' },
-    { name: '木皮(染色)', unit: '才', price: 220, remark: '' },
+  { group: '四、門片與門框 — 門框', items: [
+    { name: '門框', unit: '組', price: 3000, remark: 'AB膠＋批土2次' },
+    { name: '門框烤漆', unit: '座', price: 10000, remark: '烤漆＋AB膠＋批土' },
+  ]},
+  { group: '四、門片與門框 — 門片', items: [
+    { name: '門片', unit: '組', price: 4000, remark: 'AB膠＋批土2次' },
+    { name: '門片烤漆', unit: '座', price: 10000, remark: '烤漆＋AB膠＋批土' },
+  ]},
+  { group: '五、木皮與護木漆', items: [
+    { name: '木皮（透明）', unit: '才', price: 150, remark: '' },
+    { name: '木皮（染色）', unit: '才', price: 220, remark: '' },
     { name: '護木漆', unit: '平方公尺', price: 500, remark: '' },
     { name: '扶手護木漆', unit: '尺', price: 250, remark: '' },
   ]},
-  { group: '其他', items: [
+  { group: '六、其他工程項目', items: [
     { name: '點工', unit: '天', price: 3500, remark: '' },
     { name: '線板', unit: '尺', price: 100, remark: '' },
     { name: '軌道', unit: '尺', price: 100, remark: '' },
     { name: '踢腳板', unit: '尺', price: 80, remark: '' },
     { name: '氣口', unit: '尺', price: 200, remark: '' },
     { name: '壁紙清除', unit: '坪', price: 1000, remark: '' },
-    { name: '跳色', unit: '一面一色', price: 5000, remark: '' },
-    { name: '保護人工', unit: '平方米', price: 1500, remark: '視情況調整' },
+    { name: '跳色（一面一色）', unit: '式', price: 5000, remark: '' },
+    { name: '保護工程', unit: '平方公尺', price: 1500, remark: '依現場情況調整' },
   ]},
 ];
 
@@ -629,13 +635,11 @@ function generatePDF(isPreview) {
 
     var y = headerY + blockGap;
 
-    // 估價單編號（靠右）、日期（靠右）
-    ctx.font = 'bold 11px ' + ff; ctx.fillStyle = '#555'; ctx.textAlign = 'right';
-    ctx.fillText('編號：' + (document.getElementById('quoteNo').value || '—'), PW - m, y);
+    // 日期資訊 — 緊靠分隔線下方，靠右
     ctx.font = '11px ' + ff; ctx.fillStyle = '#888'; ctx.textAlign = 'right';
-    ctx.fillText('估價單日期：' + (document.getElementById('quoteDate').value || '—') + '　　估價單失效日：' + (document.getElementById('expireDate').value || '—'), PW - m, y + lineH);
+    ctx.fillText('估價單日期：' + (document.getElementById('quoteDate').value || '—') + '　　估價單失效日：' + (document.getElementById('expireDate').value || '—'), PW - m, y);
 
-    y += lineH + 6;
+    y += 10;
 
     // ── 承攬方 ＋ 委託方左右並排（照參考版） ──
     var halfW = Math.floor(cw / 2) - 10;
@@ -688,7 +692,7 @@ function generatePDF(isPreview) {
       total: m + Math.floor(cw * 0.86)
     };
     var hdrH = 26, rowH = 26;
-    var ROW_BG = '#fdf5f3', REMARK_BG = '#f5ece9';
+    var ROW_BG = '#f7f7f7', REMARK_BG = '#ececec';
 
     for (var wi = 0; wi < works.length; wi++) {
       var w = works[wi];
@@ -740,7 +744,7 @@ function generatePDF(isPreview) {
       }
 
       // 位置小計
-      ctx.fillStyle = '#f5ece9'; ctx.fillRect(m, y, cw, 22);
+      ctx.fillStyle = '#e8e8e8'; ctx.fillRect(m, y, cw, 22);
       ctx.strokeStyle = '#edd8d2'; ctx.lineWidth = 0.5;
       ctx.beginPath(); ctx.moveTo(m, y); ctx.lineTo(PW - m, y); ctx.stroke();
       ctx.font = '11px ' + ff; ctx.fillStyle = '#999'; ctx.textAlign = 'right';
@@ -750,10 +754,8 @@ function generatePDF(isPreview) {
       y += 22 + 8;
     }
 
-    // ── 合計區塊 ──
+    // ── 合計區塊（重新排版：左右欄等高對齊） ──
     y += 4;
-    var lw2 = Math.floor(cw * 0.50);
-    var rx2 = m + lw2 + 12;
     var sub = 0;
     works.forEach(function(w) { sub += w.workTotal; });
     var tax = Math.round(sub * 0.05);
@@ -761,98 +763,185 @@ function generatePDF(isPreview) {
     var grand = sub + tax - disc;
     var deposit = Math.round(grand * 0.3);
 
+    // ── 先計算右欄高度 ──
+    var summaryRowH = 20;
+    var summaryRows = [
+      { l: '小計', v: '$' + Math.round(sub).toLocaleString(), c: '#555' },
+      { l: '稅額 (5%)', v: '$' + tax.toLocaleString(), c: '#888' },
+      { l: '施工優惠', v: disc > 0 ? '－$' + Math.round(disc).toLocaleString() : '—', c: '#e53935' },
+    ];
+    var grandH = 28;   // 合計列高
+    var depositH = 44; // 預付工程款框高
+    var rightColH = summaryRows.length * summaryRowH + 10 + grandH + 10 + depositH;
+
+    // ── 付款方式（左欄），高度跟右欄一致 ──
     var payLines = [
-      { t: '付款方式：', b: true, c: DARK },
+      { t: '付款方式', b: true, c: DARK },
       { t: '1. 簽約及開工前：支付工程總價 30%。', b: false, c: '#444' },
       { t: '2. 工程完成約 50%（批土完成時）：支付 30%。', b: false, c: '#444' },
       { t: '3. 工程完成 100% 時：支付工程總價 30%。', b: false, c: '#444' },
       { t: '4. 工程完工驗收合格後：支付工程總價 10%。', b: false, c: '#444' },
-      { t: '指定帳戶：中國信託－大里分行｜蘇祺傑', b: false, c: '#666' },
-      { t: '(822) 056540466093', b: false, c: '#666' },
       { t: '', b: false, c: '#444' },
-      { t: '其他事項：', b: true, c: DARK },
-      { t: '1. 本估價單有效期限為 30 日。', b: false, c: '#444' },
-      { t: '2. 價格已含人工、材料及運送費用。', b: false, c: '#444' },
-      { t: '3. 若施工中有額外需求，將另行估價。', b: false, c: '#444' },
+      { t: '指定帳戶', b: true, c: DARK },
+      { t: '中國信託－大里分行｜蘇祺傑', b: false, c: '#555' },
+      { t: '銀行代號：822　帳號：056540466093', b: false, c: '#555' },
     ];
-    var lh2 = 14, pad = 10;
-    var payH = payLines.length * lh2 + pad * 2;
+    var lh2 = 15, pad = 12;
+    var payH = Math.max(payLines.length * lh2 + pad * 2, rightColH);
+
+    var lw2 = Math.floor(cw * 0.50);
+    var rx2 = m + lw2 + 14;
+    var rcw = PW - m - rx2;
+
+    // 左欄背景
     ctx.fillStyle = '#fdf7f5'; ctx.fillRect(m, y, lw2, payH);
-    ctx.strokeStyle = '#ddd'; ctx.lineWidth = 0.5; ctx.strokeRect(m, y, lw2, payH);
     ctx.fillStyle = BRAND; ctx.fillRect(m, y, 3, payH);
+    ctx.strokeStyle = '#e8d8d2'; ctx.lineWidth = 0.5; ctx.strokeRect(m, y, lw2, payH);
     payLines.forEach(function(line, i) {
+      if (!line.t) return;
       ctx.font = (line.b ? 'bold ' : '') + '11px ' + ff;
       ctx.fillStyle = line.c; ctx.textAlign = 'left';
-      ctx.fillText(line.t, m + 10, y + pad + i * lh2 + 10);
+      ctx.fillText(line.t, m + 10, y + pad + i * lh2 + 11);
     });
 
-    var sy = y + 14;
-    var summaryRows = [
-      { l: '小計：', v: '$' + Math.round(sub).toLocaleString(), c: '#555' },
-      { l: '稅額(5%)：', v: '$' + tax.toLocaleString(), c: '#999' },
-      { l: '施工優惠：', v: disc > 0 ? '-$' + Math.round(disc).toLocaleString() : '—', c: '#e53935' },
-    ];
+    // 右欄：小計、稅額、優惠
+    var sy = y + 8;
     summaryRows.forEach(function(row) {
-      ctx.font = '12px ' + ff; ctx.fillStyle = '#777'; ctx.textAlign = 'left'; ctx.fillText(row.l, rx2, sy);
-      ctx.fillStyle = row.c; ctx.textAlign = 'right'; ctx.fillText(row.v, PW - m, sy); sy += 18;
+      ctx.fillStyle = '#f9f9f9'; ctx.fillRect(rx2, sy, rcw, summaryRowH - 2);
+      ctx.font = '12px ' + ff; ctx.fillStyle = '#666'; ctx.textAlign = 'left';
+      ctx.fillText(row.l, rx2 + 10, sy + summaryRowH / 2 + 4);
+      ctx.fillStyle = row.c; ctx.textAlign = 'right';
+      ctx.fillText(row.v, PW - m - 8, sy + summaryRowH / 2 + 4);
+      sy += summaryRowH;
     });
-    ctx.strokeStyle = BRAND; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(rx2, sy); ctx.lineTo(PW - m, sy); ctx.stroke();
-    sy += 13;
-    ctx.font = 'bold 14px ' + ff; ctx.fillStyle = BRAND;
-    ctx.textAlign = 'left'; ctx.fillText('合計：', rx2, sy);
-    ctx.textAlign = 'right'; ctx.fillText('$' + Math.round(grand).toLocaleString(), PW - m, sy);
-    sy += 20;
-    ctx.fillStyle = '#fff5f2'; ctx.fillRect(rx2, sy, PW - m - rx2, 40);
-    ctx.strokeStyle = BRAND; ctx.lineWidth = 1; ctx.strokeRect(rx2, sy, PW - m - rx2, 40);
-    ctx.font = '11px ' + ff; ctx.fillStyle = BRAND; ctx.textAlign = 'left';
-    ctx.fillText('預約施工訂金（30%）：', rx2 + 8, sy + 15);
-    ctx.font = 'bold 14px ' + ff; ctx.textAlign = 'right';
-    ctx.fillText('$' + deposit.toLocaleString(), PW - m - 6, sy + 33);
 
-    // ── 簽名欄（委託方） ──
-    var sigY = Math.max(y + payH, sy + 40) + 20;
-    var sigW = Math.floor(cw * 0.45);
-    var sigH = 72;
-    ctx.fillStyle = '#fdfcfc'; ctx.fillRect(m, sigY, sigW, sigH);
-    ctx.strokeStyle = '#bbb'; ctx.lineWidth = 1; ctx.strokeRect(m, sigY, sigW, sigH);
-    ctx.font = 'bold 11px ' + ff; ctx.fillStyle = DARK; ctx.textAlign = 'left';
-    ctx.fillText('委託方簽名', m + 10, sigY + 16);
+    // 合計列
+    sy += 4;
+    ctx.fillStyle = '#f0ece8'; ctx.fillRect(rx2, sy, rcw, grandH);
+    ctx.strokeStyle = BRAND; ctx.lineWidth = 0.5; ctx.strokeRect(rx2, sy, rcw, grandH);
+    ctx.font = 'bold 13px ' + ff; ctx.fillStyle = BRAND; ctx.textAlign = 'left';
+    ctx.fillText('合計', rx2 + 10, sy + grandH / 2 + 5);
+    ctx.font = 'bold 16px ' + ff; ctx.textAlign = 'right';
+    ctx.fillText('$' + Math.round(grand).toLocaleString(), PW - m - 8, sy + grandH / 2 + 6);
+    sy += grandH + 8;
+
+    // 預付工程款框
+    ctx.fillStyle = '#fff5f2'; ctx.fillRect(rx2, sy, rcw, depositH);
+    ctx.strokeStyle = BRAND; ctx.lineWidth = 1; ctx.strokeRect(rx2, sy, rcw, depositH);
+    ctx.font = '10px ' + ff; ctx.fillStyle = '#aaa'; ctx.textAlign = 'left';
+    ctx.fillText('預付工程款（30%）', rx2 + 8, sy + 14);
+    ctx.font = 'bold 17px ' + ff; ctx.fillStyle = BRAND; ctx.textAlign = 'right';
+    ctx.fillText('$' + deposit.toLocaleString(), PW - m - 8, sy + 36);
+
+    // ── 簽名欄 ──
+    var sigTop = y + payH + 18;
+    var sigW = Math.floor(cw * 0.44);
+    var sigH = 76;
+
+    ctx.fillStyle = '#fdfcfc'; ctx.fillRect(m, sigTop, sigW, sigH);
+    ctx.strokeStyle = '#bbb'; ctx.lineWidth = 1; ctx.strokeRect(m, sigTop, sigW, sigH);
+    ctx.font = 'bold 11px ' + ff; ctx.fillStyle = '#555'; ctx.textAlign = 'left';
+    ctx.fillText('委託方簽名', m + 10, sigTop + 17);
     ctx.strokeStyle = '#3d3d3d'; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(m + 10, sigY + 54); ctx.lineTo(m + sigW - 10, sigY + 54); ctx.stroke();
-    ctx.font = '11px ' + ff; ctx.fillStyle = '#bbb';
-    ctx.fillText('簽名／蓋章', m + 10, sigY + 68);
+    ctx.beginPath(); ctx.moveTo(m + 10, sigTop + 56); ctx.lineTo(m + sigW - 10, sigTop + 56); ctx.stroke();
+    ctx.font = '10px ' + ff; ctx.fillStyle = '#bbb';
+    ctx.fillText('簽名／蓋章', m + 10, sigTop + 68);
 
-    // 中華民國年月日
-    var rocY = sigY + sigH + 28;
-    ctx.font = '12px ' + ff; ctx.fillStyle = '#555'; ctx.textAlign = 'center';
-    ctx.fillText('中華民國　　　　　　　年　　　　　　　月　　　　　　　日', PW / 2, rocY);
+    // 中華民國年月日（字元間距放寬）
+    var rocY = sigTop + sigH + 24;
+    ctx.font = '12px ' + ff; ctx.fillStyle = '#666'; ctx.textAlign = 'left';
+    var rocStr = '中 華 民 國　　　　　　　　年　　　　　　　　月　　　　　　　　日';
+    var rocX = m + sigW + 20;
+    ctx.fillText(rocStr, rocX, rocY);
+
+    // ── 浮水印（最底圖層，在內容之上但置於整頁） ──
+    // 注意：因 canvas 是逐步繪製，浮水印需在最後疊上
+    function applyWatermark(wmImg, targetCtx) {
+      if (!wmImg) return;
+      targetCtx.save();
+      targetCtx.globalAlpha = 1.0;
+      targetCtx.globalCompositeOperation = 'destination-over'; // 放最底層
+      targetCtx.drawImage(wmImg, 0, 0, PW, PH);
+      targetCtx.restore();
+    }
 
     // ── 輸出 PDF ──
-    try {
-      var jsPDFObj = window.jspdf ? window.jspdf.jsPDF : null;
-      if (!jsPDFObj) throw new Error('jsPDF 尚未載入，請確認網路連線後重新整理頁面');
-      var doc = new jsPDFObj({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      doc.addImage(canvas.toDataURL('image/png', 1.0), 'PNG', 0, 0, 210, 297);
-      var blob = new Blob([doc.output('arraybuffer')], { type: 'application/pdf' });
-      var url = URL.createObjectURL(blob);
-      if (isPreview) {
-        document.getElementById('pdfPreviewer').src = url + '#toolbar=0&navpanes=0';
-        if (lastPreviewObjectURL) URL.revokeObjectURL(lastPreviewObjectURL);
-        lastPreviewObjectURL = url;
-      } else {
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = (document.getElementById('quoteNo').value || 'quote') + '_傑出油漆估價單.pdf';
-        a.click(); URL.revokeObjectURL(url);
-        msg.className = 'status-msg success'; msg.textContent = '✅ 估價單 PDF 已產生完成';
+    function finalizePDF(wmImg) {
+      applyWatermark(wmImg, ctx);
+
+      try {
+        var jsPDFObj = window.jspdf ? window.jspdf.jsPDF : null;
+        if (!jsPDFObj) throw new Error('jsPDF 尚未載入，請確認網路連線後重新整理頁面');
+        var doc = new jsPDFObj({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        doc.addImage(canvas.toDataURL('image/png', 1.0), 'PNG', 0, 0, 210, 297);
+
+        // 附加 terms.pdf（如果存在）
+        function outputDoc() {
+          var blob = new Blob([doc.output('arraybuffer')], { type: 'application/pdf' });
+          var url = URL.createObjectURL(blob);
+          if (isPreview) {
+            document.getElementById('pdfPreviewer').src = url + '#toolbar=0&navpanes=0';
+            if (lastPreviewObjectURL) URL.revokeObjectURL(lastPreviewObjectURL);
+            lastPreviewObjectURL = url;
+          } else {
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = (document.getElementById('quoteDate').value || 'quote') + '_傑出油漆估價單.pdf';
+            a.click(); URL.revokeObjectURL(url);
+            msg.className = 'status-msg success'; msg.textContent = '✅ 估價單 PDF 已產生完成';
+          }
+          if (!isPreview) btn.disabled = false;
+        }
+
+        // 嘗試載入並附加 terms.pdf
+        if (!isPreview) {
+          fetch('terms.pdf')
+            .then(function(res) {
+              if (!res.ok) throw new Error('not found');
+              return res.arrayBuffer();
+            })
+            .then(function(termsBuf) {
+              // 用 pdf-lib 合併（如有載入）
+              if (window.PDFLib) {
+                var mainPdfBytes = doc.output('arraybuffer');
+                Promise.all([
+                  window.PDFLib.PDFDocument.load(mainPdfBytes),
+                  window.PDFLib.PDFDocument.load(termsBuf)
+                ]).then(function(docs) {
+                  var mainDoc = docs[0], termsDoc = docs[1];
+                  return termsDoc.copyPages(termsDoc, termsDoc.getPageIndices()).then(function(pages) {
+                    pages.forEach(function(p) { mainDoc.addPage(p); });
+                    return mainDoc.save();
+                  });
+                }).then(function(merged) {
+                  var blob = new Blob([merged], { type: 'application/pdf' });
+                  var url = URL.createObjectURL(blob);
+                  var a = document.createElement('a');
+                  a.href = url;
+                  a.download = (document.getElementById('quoteDate').value || 'quote') + '_傑出油漆估價單.pdf';
+                  a.click(); URL.revokeObjectURL(url);
+                  msg.className = 'status-msg success'; msg.textContent = '✅ 估價單 PDF（含條款）已產生完成';
+                  btn.disabled = false;
+                }).catch(function() { outputDoc(); });
+              } else { outputDoc(); }
+            })
+            .catch(function() { outputDoc(); });
+        } else {
+          outputDoc();
+        }
+      } catch (err) {
+        if (!isPreview) { msg.className = 'status-msg error'; msg.textContent = '❌ 產生失敗：' + err.message; }
+        console.error(err);
+        if (!isPreview) btn.disabled = false;
       }
-    } catch (err) {
-      if (!isPreview) { msg.className = 'status-msg error'; msg.textContent = '❌ 產生失敗：' + err.message; }
-      console.error(err);
     }
-    if (!isPreview) btn.disabled = false;
-  }
+
+    // 載入浮水印
+    var wmImg = new Image();
+    wmImg.onload = function() { finalizePDF(wmImg); };
+    wmImg.onerror = function() { finalizePDF(null); };
+    wmImg.src = '浮水印.png';
+  } // end drawPDF
 
   var logoImg = new Image();
   logoImg.onload = function() { drawPDF(logoImg); };
