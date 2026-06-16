@@ -177,8 +177,7 @@ input:focus, textarea:focus { outline: none; border-color: #c85c3e; background: 
 
 <header>
   <div class="header-logo-wrap">
-    <img src="傑出油漆_logo.png" alt="傑出油漆" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-    <span class="header-logo-fallback" style="display:none">傑出油漆工程行</span>
+    <span class="header-logo-fallback">傑出油漆工程行</span>
   </div>
   <div class="header-title">傑出油漆工程行｜估價單產生器</div>
 </header>
@@ -255,12 +254,12 @@ input:focus, textarea:focus { outline: none; border-color: #c85c3e; background: 
     </div>
 
     <div class="card">
-      <div class="card-title">💳 付款方式與條款</div>
+      <div class="card-title">💳 工程款支付時程</div>
       <div class="payment-block">
-        <p>1. 簽約及開工前：支付工程總價 <strong>30%</strong>。</p>
-        <p>2. 工程完成約 50%（套批土完成時）時：支付工程總價 <strong>30%</strong>。</p>
-        <p>3. 工程完成 100% 時：支付工程總價 <strong>30%</strong>。</p>
-        <p>4. 工程完工並驗收合格後：支付工程總價 <strong>10%</strong>。</p>
+        <p>第一期款（30%）：簽約暨開工前支付。</p>
+        <p>第二期款（30%）：完工50%、套批土完成時支付。</p>
+        <p>第三期款（30%）：完工100%、油漆施作完成時支付。</p>
+        <p>第四期款（10%）：驗收合格後 3 日內支付。</p>
         <div class="bank-info">
           <strong>指定帳戶：</strong>中國信託－大里分行｜蘇祺傑　(822) 056540466093
         </div>
@@ -778,11 +777,11 @@ async function generatePDF(isPreview) {
 
     // 付款方式（左欄）
     var payLines = [
-      { t: '付款方式', b: true, c: DARK },
-      { t: '① 簽約及開工前：工程總價 30%', b: false, c: '#444' },
-      { t: '② 批土完成時：工程總價 30%', b: false, c: '#444' },
-      { t: '③ 工程完成時：工程總價 30%', b: false, c: '#444' },
-      { t: '④ 驗收合格後：工程總價 10%', b: false, c: '#444' },
+      { t: '工程款支付時程', b: true, c: DARK },
+      { t: '第一期款（30%）：簽約暨開工前支付', b: false, c: '#444' },
+      { t: '第二期款（30%）：完工50%、套批土完成時支付', b: false, c: '#444' },
+      { t: '第三期款（30%）：完工100%、油漆施作完成時支付', b: false, c: '#444' },
+      { t: '第四期款（10%）：驗收合格後 3 日內支付', b: false, c: '#444' },
       { t: '', b: false, c: '' },
       { t: '指定帳戶', b: true, c: DARK },
       { t: '中國信託 大里分行　蘇祺傑', b: false, c: '#555' },
@@ -835,10 +834,10 @@ async function generatePDF(isPreview) {
     var boxW = Math.floor((cw - boxGap * 3) / 4);
     var boxH = 68;
     var payBoxes = [
-      { label: '預付工程款（30%）', amount: '$' + deposit.toLocaleString(), highlight: true },
-      { label: '批土完成時（30%）', amount: '$' + Math.round(grand * 0.3).toLocaleString(), highlight: false },
-      { label: '工程完成時（30%）', amount: '$' + Math.round(grand * 0.3).toLocaleString(), highlight: false },
-      { label: '驗收合格後（10%）', amount: '$' + Math.round(grand * 0.1).toLocaleString(), highlight: false },
+      { label: '第一期款（30%）', amount: '$' + deposit.toLocaleString(), highlight: true },
+      { label: '第二期款（30%）', amount: '$' + Math.round(grand * 0.3).toLocaleString(), highlight: false },
+      { label: '第三期款（30%）', amount: '$' + Math.round(grand * 0.3).toLocaleString(), highlight: false },
+      { label: '第四期款（10%）', amount: '$' + Math.round(grand * 0.1).toLocaleString(), highlight: false },
     ];
     payBoxes.forEach(function(box, i) {
       var bx = m + i * (boxW + boxGap);
