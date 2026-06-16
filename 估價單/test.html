@@ -832,7 +832,7 @@ async function generatePDF(isPreview) {
     // ── 四格付款金額區塊 ──
     var boxGap = 8;
     var boxW = Math.floor((cw - boxGap * 3) / 4);
-    var boxH = 130;
+    var boxH = 155;
     var payBoxes = [
       { label: '第一期款（30%）', amount: '$' + deposit.toLocaleString(), highlight: true },
       { label: '第二期款（30%）', amount: '$' + Math.round(grand * 0.3).toLocaleString(), highlight: false },
@@ -856,29 +856,28 @@ async function generatePDF(isPreview) {
       ctx.font = '11px ' + ff;
       ctx.textAlign = 'center';
       ctx.fillStyle = box.highlight ? '#c85c3e' : '#888';
-      ctx.fillText(box.label, bx + boxW / 2, y + 18);
+      ctx.fillText(box.label, bx + boxW / 2, y + 24);
 
-      ctx.font = 'bold 16px ' + ff;
+      ctx.font = 'bold 18px ' + ff;
       ctx.fillStyle = box.highlight ? BRAND : '#666';
-      ctx.fillText(box.amount, bx + boxW / 2, y + 38);
+      ctx.fillText(box.amount, bx + boxW / 2, y + 56);
 
-      ctx.strokeStyle = '#dddddd';
+      ctx.strokeStyle = '#d8d8d8';
       ctx.beginPath();
-      ctx.moveTo(bx + 6, y + 48);
-      ctx.lineTo(bx + boxW - 6, y + 48);
+      ctx.moveTo(bx + 8, y + 72);
+      ctx.lineTo(bx + boxW - 8, y + 72);
       ctx.stroke();
 
-      ctx.font = '9px ' + ff;
+      ctx.font = '10px ' + ff;
       ctx.fillStyle = '#555';
       ctx.textAlign = 'left';
-      ctx.fillText('收款日期', bx + 8, y + 64);
-      ctx.fillText('____________', bx + 8, y + 76);
 
-      ctx.fillText('□現金', bx + 8, y + 94);
-      ctx.fillText('□匯款', bx + 8, y + 108);
+      ctx.fillText('收款日期 ____________', bx + 10, y + 95);
+      ctx.fillText('□現金', bx + 10, y + 118);
+      ctx.fillText('□匯款，____________', bx + 10, y + 138);
 
       ctx.font = '8px ' + ff;
-      ctx.fillText('末五碼：_____', bx + 8, y + 121);
+      ctx.fillText('（末五碼）', bx + 60, y + 149);
     });
 
     y = y + boxH + 44;
