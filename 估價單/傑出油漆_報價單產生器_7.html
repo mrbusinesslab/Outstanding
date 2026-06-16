@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>傑出油漆｜估價單產生器</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Microsoft JhengHei','微軟正黑體',Arial,sans-serif; background: #f5f1ef; color: #1a1a1a; min-height: 100vh; }
+header { background: #c85c3e; color: white; padding: 18px 36px; box-shadow: 0 2px 8px rgba(0,0,0,0.18); display: flex; align-items: center; gap: 16px; }
+header .header-logo-wrap { height: 44px; display: flex; align-items: center; }
+header .header-logo-wrap img { height: 44px; width: auto; }
+header .header-logo-fallback { font-size: 18px; font-weight: 700; letter-spacing: 1px; }
+header .header-title { font-size: 15px; font-weight: 600; opacity: 0.92; letter-spacing: 0.5px; }
+
+.main-layout { display: grid; grid-template-columns: 1fr; gap: 24px; max-width: 1600px; margin: 32px auto; padding: 0 20px 60px; }
+@media (min-width: 1100px) { .main-layout { grid-template-columns: 1fr 1fr; } }
+
+.container { width: 100%; max-width: 860px; margin: 0 auto; }
+.preview-sticky { position: sticky; top: 24px; height: calc(100vh - 110px); min-height: 500px; }
+.preview-card { background: white; border-radius: 10px; padding: 20px; height: 100%; box-shadow: 0 2px 12px rgba(0,0,0,0.07); display: flex; flex-direction: column; }
+.preview-card .card-title { font-size: 14px; font-weight: 700; color: #c85c3e; margin-bottom: 12px; }
+.preview-iframe { width: 100%; flex: 1; border: 1px solid #e2d5cf; border-radius: 6px; background: #fafafa; }
+
+.card { background: white; border-radius: 10px; padding: 28px 28px 24px; margin-bottom: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+.card-title { font-size: 14px; font-weight: 700; color: #c85c3e; margin-bottom: 18px; padding-bottom: 10px; border-bottom: 2px solid #f0e6e2; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group.full { grid-column: 1 / -1; }
+label { font-size: 12px; color: #777; font-weight: 500; }
+input[type="text"], input[type="date"], input[type="number"], textarea {
+  border: 1px solid #ddd; border-radius: 6px; padding: 8px 11px;
+  font-size: 13px; font-family: inherit; color: #1a1a1a; background: #fdfcfc; width: 100%; transition: border 0.2s;
+}
+textarea { resize: vertical; min-height: 52px; line-height: 1.6; }
+input:focus, textarea:focus { outline: none; border-color: #c85c3e; background: white; }
+
+.contractor-block { background: #fdf7f5; border-left: 4px solid #c85c3e; border-radius: 0 8px 8px 0; padding: 12px 16px; font-size: 13px; color: #3d3d3d; line-height: 2.0; }
+.contractor-block strong { color: #c85c3e; margin-right: 4px; }
+
+/* 施工位置 */
+.work-block { border: 1.5px solid #e0d0cc; border-radius: 10px; margin-bottom: 18px; overflow: hidden; }
+.work-header { background: #c85c3e; padding: 10px 14px; display: flex; align-items: center; gap: 10px; }
+.work-header input { flex: 1; border: none; background: transparent; font-size: 13px; font-weight: 600; color: white; padding: 0; font-family: inherit; }
+.work-header input::placeholder { color: rgba(255,255,255,0.5); }
+.work-header input:focus { outline: none; }
+.del-work-btn { background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); color: white; padding: 3px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; font-family: inherit; flex-shrink: 0; }
+.del-work-btn:hover { background: rgba(255,255,255,0.35); }
+
+/* 欄位表頭 */
+.content-col-header { display: grid; grid-template-columns: 1fr 70px 70px 90px 86px 26px; gap: 4px; padding: 4px 12px 2px; align-items: center; }
+.content-col-header span { font-size: 10px; color: #bbb; text-align: right; }
+.content-col-header span:first-child { text-align: left; }
+
+/* 施工內容列 — 固定單行高度，所有欄在同一行 */
+.content-list { padding: 4px 10px 2px; }
+.content-item-row {
+  display: grid;
+  grid-template-columns: 1fr 70px 70px 90px 86px 26px;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 4px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  min-height: 36px;
+}
+.content-item-row:nth-child(odd)  { background: #f7f7f7; }
+.content-item-row:nth-child(even) { background: #efefef; }
+
+/* 施工內容名稱 — 單行 */
+.content-name-input {
+  border: none; background: transparent; font-size: 12px; font-family: inherit;
+  padding: 2px 3px; color: #1a1a1a; width: 100%; white-space: nowrap;
+}
+.content-name-input:focus { outline: none; border-bottom: 1px solid #c85c3e; }
+
+/* 數量、單價 */
+.content-item-row input[type="number"] {
+  border: 1px solid #e0d0cc; border-radius: 4px; font-size: 12px;
+  font-family: inherit; padding: 4px 6px; text-align: right;
+  background: white; width: 100%; height: 28px;
+}
+.content-item-row input[type="number"]:focus { outline: none; border-color: #c85c3e; }
+
+/* 單位 — 下拉選單 */
+.ci-unit {
+  border: 1px solid #e0d0cc; border-radius: 4px; font-size: 12px;
+  font-family: inherit; padding: 4px 4px; text-align: center;
+  background: white; width: 100%; height: 28px; cursor: pointer;
+  color: #3d3d3d; appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23c85c3e'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 5px center;
+  padding-right: 18px;
+}
+.ci-unit:focus { outline: none; border-color: #c85c3e; }
+
+/* 備註（在施工內容列下方，獨立行） */
+.content-remark-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  padding: 2px 8px 5px 8px;
+  margin-bottom: 4px;
+  margin-top: -4px;
+}
+.content-remark-row:nth-child(odd)  { background: #fdf5f3; }
+.content-remark-row:nth-child(even) { background: #f8f8f8; }
+.content-remark-input {
+  border: none; border-bottom: 1px dashed #e0d0cc; background: transparent;
+  font-size: 11px; font-family: inherit; padding: 2px 4px; color: #aaa;
+  width: 100%; resize: none; height: 22px; overflow: hidden; line-height: 1.4;
+  white-space: nowrap;
+}
+.content-remark-input::placeholder { color: #ccc; font-style: italic; }
+.content-remark-input:focus { outline: none; border-bottom-color: #c85c3e; color: #888; }
+
+.col-total { font-size: 12px; font-weight: 700; color: #c85c3e; text-align: right; white-space: nowrap; }
+.col-del { background: none; border: none; cursor: pointer; color: #ccc; font-size: 16px; padding: 0; text-align: center; line-height: 1; }
+.col-del:hover { color: #e53935; }
+
+/* 價目表 */
+.pricelist-row { padding: 5px 12px 7px; background: #fdf8f7; border-top: 1px dashed #edd8d2; display: flex; align-items: center; gap: 7px; }
+.pricelist-label { font-size: 11px; color: #bbb; white-space: nowrap; }
+.pricelist-select { border: 1px solid #ddd; border-radius: 5px; padding: 4px 7px; font-size: 12px; font-family: inherit; background: white; color: #333; cursor: pointer; flex: 1; }
+.pricelist-select:focus { outline: none; border-color: #c85c3e; }
+
+.add-content-btn { display: block; background: none; border: 1px dashed #c85c3e; color: #c85c3e; padding: 4px 12px; border-radius: 5px; font-size: 12px; cursor: pointer; font-family: inherit; margin: 4px 10px 8px; }
+.add-content-btn:hover { background: #fdf0ec; }
+
+.work-subtotal-row { padding: 7px 12px; background: #faf0ed; border-top: 1px solid #edd8d2; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+.work-subtotal-label { font-size: 11px; color: #aaa; }
+.work-subtotal-value { font-size: 13px; font-weight: 700; color: #c85c3e; }
+
+.add-work-btn { background: none; border: 1.5px dashed #c85c3e; color: #c85c3e; padding: 10px; border-radius: 8px; font-size: 13px; cursor: pointer; font-family: inherit; width: 100%; margin-top: 4px; }
+.add-work-btn:hover { background: #fdf0ec; }
+
+.summary-block { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; margin-top: 18px; padding-top: 14px; border-top: 2px solid #f0e6e2; }
+.summary-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.summary-row label { color: #666; min-width: 80px; text-align: right; }
+.summary-value { min-width: 120px; text-align: right; }
+.summary-row.discount label { color: #e53935; }
+.summary-row.discount .summary-value { color: #e53935; }
+.summary-row.tax label { color: #999; font-size: 12px; }
+.summary-row.tax .summary-value { color: #999; font-size: 12px; }
+.summary-row.total label { font-size: 15px; font-weight: 700; color: #c85c3e; }
+.summary-row.total .summary-value { font-size: 17px; font-weight: 700; color: #c85c3e; }
+.discount-input { border: 1px solid #ddd; border-radius: 6px; padding: 5px 9px; font-size: 13px; width: 120px; text-align: right; font-family: inherit; background: #fdfcfc; }
+.discount-input:focus { outline: none; border-color: #c85c3e; }
+
+.deposit-block { background: #fff5f2; border: 1.5px solid #c85c3e; border-radius: 8px; padding: 18px 22px; display: flex; align-items: center; justify-content: space-between; }
+.deposit-label { font-size: 14px; font-weight: 700; color: #c85c3e; }
+.deposit-sub { font-size: 11px; color: #bbb; margin-top: 3px; }
+.deposit-amount { font-size: 22px; font-weight: 700; color: #c85c3e; }
+
+.payment-block { background: #fdf7f5; border-radius: 8px; padding: 14px 18px; font-size: 13px; color: #444; line-height: 2.1; border-left: 4px solid #c85c3e; }
+.payment-block p { margin-bottom: 1px; }
+.bank-info { background: white; border: 1px solid #edd8d2; border-radius: 6px; padding: 8px 13px; margin-top: 10px; font-size: 12px; color: #555; line-height: 1.9; }
+.bank-info strong { color: #c85c3e; }
+.other-block { background: #fafafa; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #555; line-height: 2.1; border-left: 4px solid #3d3d3d; margin-top: 10px; }
+
+.signature-section { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 18px; }
+.sig-box { border: 1px solid #ddd; border-radius: 8px; padding: 16px 16px 14px; background: #fdfcfc; }
+.sig-box-title { font-size: 12px; color: #888; font-weight: 700; margin-bottom: 12px; }
+.sig-line { border-bottom: 1.5px solid #3d3d3d; height: 60px; margin-bottom: 8px; }
+.sig-label { font-size: 11px; color: #bbb; }
+
+.generate-btn { display: block; width: 100%; background: #c85c3e; color: white; border: none; padding: 15px; border-radius: 10px; font-size: 15px; font-weight: 700; font-family: inherit; cursor: pointer; letter-spacing: 1px; box-shadow: 0 4px 12px rgba(200,92,62,0.28); transition: background 0.2s; }
+.generate-btn:hover { background: #b04f34; }
+.generate-btn:disabled { background: #d9b0a4; cursor: not-allowed; }
+.status-msg { text-align: center; font-size: 13px; color: #888; margin-top: 10px; min-height: 20px; }
+.status-msg.error { color: #e53935; }
+.status-msg.success { color: #2e7d32; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-title">傑出油漆工程行｜估價單產生器</div>
+</header>
+
+<div class="main-layout">
+  <div class="container">
+
+    <div class="card">
+      <div class="card-title">📋 估價單資訊</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>估價單日期</label>
+          <input type="date" id="quoteDate">
+        </div>
+        <div class="form-group">
+          <label>估價單失效日</label>
+          <input type="date" id="expireDate">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🏢 承攬方資訊</div>
+      <div class="contractor-block">
+        <div><strong>負責人：</strong>蘇祺傑　　<strong>電話：</strong>0910-930617</div>
+        <div><strong>電子郵件：</strong>newjacktw@yahoo.com.tw</div>
+        <div><strong>統一編號：</strong>95294201</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">👤 委託方資訊</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>委託方（業主／公司）</label>
+          <input type="text" id="clientName" placeholder="例：陳大名 先生／XX設計有限公司">
+        </div>
+        <div class="form-group">
+          <label>負責人 ／ 設計師</label>
+          <input type="text" id="clientContact" placeholder="例：本人／林設計師">
+        </div>
+        <div class="form-group">
+          <label>聯絡電話</label>
+          <input type="text" id="clientPhone" placeholder="例：0912-345-678">
+        </div>
+        <div class="form-group full">
+          <label>施工地址</label>
+          <input type="text" id="clientAddress" placeholder="例：台中市大里區某路100號">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🎨 施工項目與費用</div>
+      <div id="worksContainer"></div>
+      <button class="add-work-btn" onclick="addWork()">＋ 新增施工位置</button>
+      <div class="summary-block">
+        <div class="summary-row"><label>小計</label><span class="summary-value" id="subtotal">$0</span></div>
+        <div class="summary-row tax"><label>稅額 (5%)</label><span class="summary-value" id="taxAmount">$0</span></div>
+        <div class="summary-row discount"><label>施工優惠</label><input class="discount-input" type="number" id="discount" placeholder="0" value="0" oninput="recalc()"></div>
+        <div class="summary-row total"><label>合計</label><span class="summary-value" id="grandTotal">$0</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💰 預付工程款</div>
+      <div class="deposit-block">
+        <div>
+          <div class="deposit-label">預付工程款</div>
+          <div class="deposit-sub">合計金額 × 30%</div>
+        </div>
+        <div class="deposit-amount" id="depositAmount">$0</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💳 付款方式與條款</div>
+      <div class="payment-block">
+        <p>工程款支付時程</p>
+        <p>第一期款（30%）：簽約暨開工前支付。</p>
+        <p>第二期款（30%）：完工50%、套批土完成時支付。</p>
+        <p>第三期款（30%）：完工100%、油漆施作完成時支付。</p>
+        <p>第四期款（10%）：驗收合格後 3 日內支付。</p>
+        <div class="bank-info">
+          <strong>指定帳戶：</strong>中國信託－大里分行｜蘇祺傑　(822) 056540466093
+        </div>
+      </div>
+      <div style="margin-top:20px;">
+        <div style="font-size:13px;color:#555;font-weight:600;margin-bottom:10px;">簽名確認欄</div>
+        <div class="signature-section">
+          <div class="sig-box">
+            <div class="sig-box-title">委託方簽名</div>
+            <div class="sig-line"></div>
+            <div class="sig-label">簽名／蓋章　　日期：＿＿年＿＿月＿＿日</div>
+          </div>
+          <div class="sig-box">
+            <div class="sig-box-title">承攬方簽名</div>
+            <div class="sig-line"></div>
+            <div class="sig-label">蘇祺傑　　　　日期：＿＿年＿＿月＿＿日</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="generate-btn" id="generateBtn" onclick="generatePDF(false)">產生估價單 PDF</button>
+    <div class="status-msg" id="statusMsg"></div>
+  </div>
+
+  <div class="preview-sticky">
+    <div class="preview-card">
+      <div class="card-title">👀 PDF 即時預覽</div>
+      <iframe class="preview-iframe" id="pdfPreviewer" src="about:blank"></iframe>
+    </div>
+  </div>
+</div>
+
+<script>
+var UNITS = ['坪','尺','才','組','座','框','扇','天','尺','式','平方公尺','一面一色','平方米','—'];
+
+var PRICE_LIST = [
+  { group: '一、裝潢油漆 — 簡單修補', items: [
+    { name: '水泥漆', unit: '坪', price: 300, remark: '' },
+    { name: '乳膠漆', unit: '坪', price: 600, remark: '' },
+  ]},
+  { group: '一、裝潢油漆 — RC牆', items: [
+    { name: 'RC牆（水泥漆）', unit: '坪', price: 900, remark: '套批2次＋研磨＋水泥漆' },
+    { name: 'RC牆（乳膠漆）', unit: '坪', price: 1200, remark: '套批2次＋研磨＋乳膠漆' },
+  ]},
+  { group: '一、裝潢油漆 — 平釘天花板', items: [
+    { name: '平釘（水泥漆）', unit: '坪', price: 1300, remark: 'AB膠＋接縫抓土2次＋套批＋研磨＋上漆' },
+    { name: '平釘（水泥漆）＋造型', unit: '坪', price: 1500, remark: 'AB膠＋接縫抓土2次＋套批＋研磨＋上漆' },
+    { name: '平釘（乳膠漆）', unit: '坪', price: 1600, remark: 'AB膠＋接縫抓土2次＋套批＋研磨＋上漆' },
+    { name: '平釘（乳膠漆）＋造型', unit: '坪', price: 1800, remark: 'AB膠＋接縫抓土2次＋套批＋研磨＋上漆' },
+  ]},
+  { group: '一、裝潢油漆 — 包管', items: [
+    { name: '包管（水泥漆）', unit: '尺', price: 250, remark: 'AB膠＋接縫抓土2次＋套批＋研磨＋上漆' },
+    { name: '包管（水泥漆）＋造型', unit: '尺', price: 350, remark: 'AB膠＋接縫抓土2次＋套批＋研磨＋上漆' },
+    { name: '包管（乳膠漆）', unit: '尺', price: 300, remark: 'AB膠＋接縫抓土2次＋套批＋研磨＋上漆' },
+    { name: '包管（乳膠漆）＋造型', unit: '尺', price: 400, remark: 'AB膠＋接縫抓土2次＋套批＋研磨＋上漆' },
+  ]},
+  { group: '一、裝潢油漆 — 窗簾盒', items: [
+    { name: '窗簾盒（水泥漆）', unit: '尺', price: 300, remark: '含封閉底漆' },
+    { name: '窗簾盒（乳膠漆）', unit: '尺', price: 350, remark: '含封閉底漆' },
+  ]},
+  { group: '一、裝潢油漆 — 跳色加價', items: [
+    { name: '跳色加價', unit: '尺', price: 20, remark: '每尺加價 $20' },
+    { name: '跳色加價', unit: '坪', price: 100, remark: '每坪加價 $100' },
+  ]},
+  { group: '二、特殊漆', items: [
+    { name: '司曼特（無須整平）', unit: '坪', price: 5000, remark: '' },
+    { name: '司曼特（矽酸鈣板起）', unit: '坪', price: 6000, remark: '' },
+    { name: '特殊／藝術漆（無須整平）', unit: '坪', price: 6000, remark: '' },
+    { name: '特殊／藝術漆（矽酸鈣板起）', unit: '坪', price: 7000, remark: '' },
+  ]},
+  { group: '三、各種漆類', items: [
+    { name: '烤漆', unit: '才', price: 250, remark: '' },
+    { name: '晴雨漆', unit: '坪', price: 1500, remark: '防水底漆＋晴雨漆2道' },
+    { name: '石頭漆', unit: '坪', price: 7000, remark: '' },
+    { name: '浪板漆', unit: '坪', price: 2000, remark: '' },
+    { name: '外牆彈性水泥漆', unit: '坪', price: 900, remark: '防水底漆＋彈性水泥漆2道' },
+    { name: '屋頂倍剋漏', unit: '坪', price: 2000, remark: '清潔＋防水底漆＋倍剋漏2道' },
+  ]},
+  { group: '四、門片與門框 — 亮光漆／烤漆', items: [
+    { name: '門框門片（亮漆）', unit: '組', price: 1800, remark: '' },
+    { name: '門框門片（烤漆）', unit: '組', price: 17000, remark: '' },
+  ]},
+  { group: '四、門片與門框 — 門框', items: [
+    { name: '門框', unit: '組', price: 3000, remark: 'AB膠＋批土2次' },
+    { name: '門框烤漆', unit: '座', price: 10000, remark: '烤漆＋AB膠＋批土' },
+  ]},
+  { group: '四、門片與門框 — 門片', items: [
+    { name: '門片', unit: '組', price: 4000, remark: 'AB膠＋批土2次' },
+    { name: '門片烤漆', unit: '座', price: 10000, remark: '烤漆＋AB膠＋批土' },
+  ]},
+  { group: '五、木皮與護木漆', items: [
+    { name: '木皮（透明）', unit: '才', price: 150, remark: '' },
+    { name: '木皮（染色）', unit: '才', price: 220, remark: '' },
+    { name: '護木漆', unit: '平方公尺', price: 500, remark: '' },
+    { name: '扶手護木漆', unit: '尺', price: 250, remark: '' },
+  ]},
+  { group: '六、其他工程項目', items: [
+    { name: '點工', unit: '天', price: 3500, remark: '' },
+    { name: '線板', unit: '尺', price: 100, remark: '' },
+    { name: '軌道', unit: '尺', price: 100, remark: '' },
+    { name: '踢腳板', unit: '尺', price: 80, remark: '' },
+    { name: '氣口', unit: '尺', price: 200, remark: '' },
+    { name: '壁紙清除', unit: '坪', price: 1000, remark: '' },
+    { name: '跳色（一面一色）', unit: '式', price: 5000, remark: '' },
+    { name: '保護工程', unit: '平方公尺', price: 1500, remark: '依現場情況調整' },
+  ]},
+];
+
+var workCount = 0, contentCount = 0;
+var previewTimeout = null, lastPreviewObjectURL = null;
+
+function triggerLivePreview() {
+  clearTimeout(previewTimeout);
+  previewTimeout = setTimeout(function() { generatePDF(true); }, 700);
+}
+
+window.addEventListener('load', function() {
+  var fmt = function(d) { return d.toISOString().split('T')[0]; };
+  var today = new Date();
+  document.getElementById('quoteDate').value = fmt(today);
+  var exp = new Date(today); exp.setDate(exp.getDate() + 30);
+  document.getElementById('expireDate').value = fmt(exp);
+
+  // 估價單日期變動時，失效日自動跳 30 天後
+  document.getElementById('quoteDate').addEventListener('change', function() {
+    var d = new Date(this.value);
+    if (!isNaN(d.getTime())) {
+      d.setDate(d.getDate() + 30);
+      document.getElementById('expireDate').value = fmt(d);
+    }
+    triggerLivePreview();
+  });
+
+  addWork();
+  document.querySelectorAll('.container input, .container textarea, .container select').forEach(function(el) {
+    el.addEventListener('input', triggerLivePreview);
+    el.addEventListener('change', triggerLivePreview);
+  });
+  triggerLivePreview();
+});
+
+function buildPriceOptions() {
+  var opts = '<option value="">📋 從價目表快速套用</option>';
+  PRICE_LIST.forEach(function(grp) {
+    opts += '<optgroup label="' + grp.group + '">';
+    grp.items.forEach(function(item) {
+      var label = item.name + '（' + item.unit + (item.price > 0 ? '／$' + item.price.toLocaleString() : '') + '）';
+      opts += '<option value="' + item.price + '" data-unit="' + item.unit + '" data-name="' + item.name + '" data-remark="' + item.remark + '">' + label + '</option>';
+    });
+    opts += '</optgroup>';
+  });
+  return opts;
+}
+
+function buildUnitOptions(selected) {
+  var opts = '';
+  UNITS.forEach(function(u) {
+    opts += '<option value="' + u + '"' + (u === selected ? ' selected' : '') + '>' + u + '</option>';
+  });
+  return opts;
+}
+
+var WORK_COLORS = ['#c85c3e','#b04f34','#d4715a','#9a3f27'];
+
+function addWork() {
+  workCount++;
+  var id = workCount;
+  var idx = document.getElementById('worksContainer').children.length;
+  var color = WORK_COLORS[idx % WORK_COLORS.length];
+  var div = document.createElement('div');
+  div.className = 'work-block';
+  div.id = 'work-' + id;
+  div.innerHTML =
+    '<div class="work-header" style="background:' + color + '">' +
+      '<input type="text" placeholder="施工位置，例：客廳／2樓" oninput="triggerLivePreview()">' +
+      '<button class="del-work-btn" onclick="deleteWork(' + id + ')">刪除</button>' +
+    '</div>' +
+    '<div class="pricelist-row">' +
+      '<span class="pricelist-label">快速套用：</span>' +
+      '<select class="pricelist-select" onchange="applyPriceToNew(' + id + ', this)">' + buildPriceOptions() + '</select>' +
+    '</div>' +
+    '<div class="content-col-header">' +
+      '<span>施工內容</span><span>數量</span><span>單位</span><span>單價</span><span>小計</span><span></span>' +
+    '</div>' +
+    '<div class="content-list" id="contents-' + id + '"></div>' +
+    '<button class="add-content-btn" onclick="addContent(' + id + ',\'\',\'\',0,\'\')">＋ 新增施工內容</button>' +
+    '<div class="work-subtotal-row">' +
+      '<span class="work-subtotal-label">此位置小計：</span>' +
+      '<span class="work-subtotal-value" id="workTotal-' + id + '">$0</span>' +
+    '</div>';
+  document.getElementById('worksContainer').appendChild(div);
+  div.querySelectorAll('input, textarea, select').forEach(function(el) {
+    el.addEventListener('input', triggerLivePreview);
+    el.addEventListener('change', triggerLivePreview);
+  });
+  addContent(id, '', '坪', 0, '');
+  recalc();
+}
+
+function applyPriceToNew(workId, sel) {
+  var opt = sel.options[sel.selectedIndex];
+  if (!opt.value && opt.getAttribute('data-name') === null) return;
+  var name = opt.getAttribute('data-name') || '';
+  var unit = opt.getAttribute('data-unit') || '坪';
+  var price = parseFloat(opt.value) || 0;
+  var remark = opt.getAttribute('data-remark') || '';
+  if (!name) return;
+  addContent(workId, name, unit, price, remark);
+  sel.value = '';
+  recalcWork(workId);
+}
+
+function addContent(workId, name, unit, price, remark) {
+  name = name || ''; unit = unit || '坪'; price = price || 0; remark = remark || '';
+  contentCount++;
+  var cid = contentCount;
+
+  // 主列（施工內容 + 數量 + 單位下拉 + 單價 + 小計 + 刪除）
+  var row = document.createElement('div');
+  row.className = 'content-item-row';
+  row.id = 'ci-' + cid;
+  var safeName = name.replace(/"/g, '&quot;');
+  row.innerHTML =
+    '<input type="text" class="content-name-input" placeholder="施工內容名稱" value="' + safeName + '" oninput="triggerLivePreview()">' +
+    '<input type="number" placeholder="0" min="0" id="cqty-' + cid + '" oninput="recalcContent(' + cid + ',' + workId + ')">' +
+    '<select class="ci-unit" id="cunit-' + cid + '" onchange="triggerLivePreview()">' + buildUnitOptions(unit) + '</select>' +
+    '<input type="number" placeholder="0" min="0" id="cprice-' + cid + '" value="' + (price || '') + '" oninput="recalcContent(' + cid + ',' + workId + ')">' +
+    '<span class="col-total" id="ctotal-' + cid + '">$0</span>' +
+    '<button class="col-del" onclick="deleteContent(' + cid + ',' + workId + ')">×</button>';
+
+  // 備註列（緊接在主列之下，同樣 id 關聯）
+  var remarkRow = document.createElement('div');
+  remarkRow.className = 'content-remark-row';
+  remarkRow.id = 'cr-' + cid;
+  remarkRow.innerHTML =
+    '<input type="text" class="content-remark-input" id="cremark-' + cid + '" placeholder="備註（例：AB膠+批土*2+研磨+乳膠漆）" value="' + remark.replace(/"/g,'&quot;') + '" oninput="triggerLivePreview()">';
+
+  var list = document.getElementById('contents-' + workId);
+  list.appendChild(row);
+  list.appendChild(remarkRow);
+
+  row.querySelectorAll('input, select').forEach(function(el) {
+    el.addEventListener('input', triggerLivePreview);
+    el.addEventListener('change', triggerLivePreview);
+  });
+  remarkRow.querySelector('input').addEventListener('input', triggerLivePreview);
+
+  if (price > 0) recalcContent(cid, workId);
+}
+
+function deleteContent(cid, workId) {
+  var el = document.getElementById('ci-' + cid);
+  var rel = document.getElementById('cr-' + cid);
+  if (el) el.remove();
+  if (rel) rel.remove();
+  recalcWork(workId); triggerLivePreview();
+}
+
+function recalcContent(cid, workId) {
+  var qty = parseFloat((document.getElementById('cqty-' + cid) || {}).value) || 0;
+  var price = parseFloat((document.getElementById('cprice-' + cid) || {}).value) || 0;
+  var el = document.getElementById('ctotal-' + cid);
+  if (el) el.textContent = '$' + fmtN(qty * price);
+  recalcWork(workId);
+}
+
+function recalcWork(workId) {
+  var total = 0;
+  var list = document.getElementById('contents-' + workId);
+  if (list) {
+    list.querySelectorAll('.content-item-row').forEach(function(row) {
+      var cid = row.id.replace('ci-', '');
+      var qty = parseFloat((document.getElementById('cqty-' + cid) || {}).value) || 0;
+      var price = parseFloat((document.getElementById('cprice-' + cid) || {}).value) || 0;
+      total += qty * price;
+    });
+  }
+  var el = document.getElementById('workTotal-' + workId);
+  if (el) el.textContent = '$' + fmtN(total);
+  recalc();
+}
+
+function deleteWork(id) {
+  var el = document.getElementById('work-' + id);
+  if (el) { el.remove(); recalc(); triggerLivePreview(); }
+}
+
+function recalc() {
+  var sub = 0;
+  var works = document.getElementById('worksContainer').children;
+  for (var i = 0; i < works.length; i++) {
+    var workId = works[i].id.replace('work-', '');
+    var list = document.getElementById('contents-' + workId);
+    if (list) {
+      list.querySelectorAll('.content-item-row').forEach(function(row) {
+        var cid = row.id.replace('ci-', '');
+        var qty = parseFloat((document.getElementById('cqty-' + cid) || {}).value) || 0;
+        var price = parseFloat((document.getElementById('cprice-' + cid) || {}).value) || 0;
+        sub += qty * price;
+      });
+    }
+  }
+  var tax = Math.round(sub * 0.05);
+  var disc = parseFloat(document.getElementById('discount').value) || 0;
+  var grand = sub + tax - disc;
+  document.getElementById('subtotal').textContent = '$' + fmtN(sub);
+  document.getElementById('taxAmount').textContent = '$' + fmtN(tax);
+  document.getElementById('grandTotal').textContent = '$' + fmtN(grand);
+  document.getElementById('depositAmount').textContent = '$' + fmtN(grand * 0.3);
+}
+
+function fmtN(n) { return Math.round(n).toLocaleString('zh-TW'); }
+
+function collectData() {
+  var works = [];
+  var wEls = document.getElementById('worksContainer').children;
+  for (var i = 0; i < wEls.length; i++) {
+    var wEl = wEls[i];
+    var workId = wEl.id.replace('work-', '');
+    if (!workId) continue;
+    var location = wEl.querySelector('.work-header input') ? wEl.querySelector('.work-header input').value : '';
+    var color = wEl.querySelector('.work-header') ? wEl.querySelector('.work-header').style.background : '#c85c3e';
+    var items = [];
+    var list = document.getElementById('contents-' + workId);
+    if (list) {
+      list.querySelectorAll('.content-item-row').forEach(function(row) {
+        var cid = row.id.replace('ci-', '');
+        var nameEl = row.querySelector('.content-name-input');
+        var remarkEl = document.getElementById('cremark-' + cid);
+        var name = nameEl ? nameEl.value : '';
+        var remark = remarkEl ? remarkEl.value : '';
+        var qty = parseFloat((document.getElementById('cqty-' + cid) || {}).value) || 0;
+        var unitEl = document.getElementById('cunit-' + cid);
+        var unit = unitEl ? unitEl.value : '';
+        var price = parseFloat((document.getElementById('cprice-' + cid) || {}).value) || 0;
+        items.push({ name: name, remark: remark, qty: qty, unit: unit, price: price, total: qty * price });
+      });
+    }
+    var workTotal = items.reduce(function(s, x) { return s + x.total; }, 0);
+    works.push({ location: location, color: color, items: items, workTotal: workTotal });
+  }
+  return works;
+}
+
+// ── PDF 產生（排版照參考檔案） ──
+function generatePDF(isPreview) {
+  if (isPreview === undefined) isPreview = false;
+  var btn = document.getElementById('generateBtn');
+  var msg = document.getElementById('statusMsg');
+  if (!isPreview) { btn.disabled = true; msg.className = 'status-msg'; msg.textContent = '正在產生估價單...'; }
+
+  var SCALE = 3, PW = 794, PH = 1123;
+  var canvas = document.createElement('canvas');
+  canvas.width = PW * SCALE; canvas.height = PH * SCALE;
+  var ctx = canvas.getContext('2d');
+  ctx.scale(SCALE, SCALE);
+  var m = 42, cw = PW - m * 2;
+  var ff = '"Microsoft JhengHei","微軟正黑體","PingFang TC",Arial,sans-serif';
+  var BRAND = '#c85c3e', DARK = '#3d3d3d';
+
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, PW, PH);
+
+  var lineH = 20, blockGap = 14;
+  var logoH = 40, logoW = Math.round(logoH * 3.5);
+  var headerY = m + logoH;
+
+  function drawPDF(logoImg) {
+    // ── 大標題 ──
+    ctx.font = 'bold 24px ' + ff; ctx.fillStyle = DARK; ctx.textAlign = 'left';
+    ctx.fillText('施工估價單', m, headerY - 6);
+
+    if (logoImg) {
+      ctx.drawImage(logoImg, PW - m - logoW, headerY - logoH, logoW, logoH);
+    } else {
+      ctx.font = 'bold 13px ' + ff; ctx.fillStyle = BRAND; ctx.textAlign = 'right';
+      ctx.fillText('傑出油漆工程行', PW - m, headerY - 6);
+    }
+
+    // 分隔線
+    ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(m, headerY); ctx.lineTo(PW - m, headerY); ctx.stroke();
+
+    var y = headerY + blockGap;
+
+    // 日期資訊 — 緊靠分隔線下方，靠右
+    ctx.font = '11px ' + ff; ctx.fillStyle = '#888'; ctx.textAlign = 'right';
+    ctx.fillText('估價單日期：' + (document.getElementById('quoteDate').value || '—') + '　　估價單失效日：' + (document.getElementById('expireDate').value || '—'), PW - m, y);
+
+    y += 10;
+
+    // ── 承攬方 ＋ 委託方左右並排（照參考版） ──
+    var halfW = Math.floor(cw / 2) - 10;
+    var partyLineH = 17;
+
+    // 左：承攬方
+    ctx.font = 'bold 11px ' + ff; ctx.fillStyle = BRAND; ctx.textAlign = 'left';
+    ctx.fillText('承攬方資訊', m, y + 12);
+    ctx.fillStyle = BRAND; ctx.fillRect(m, y + 15, 36, 1.5);
+    ctx.font = '11px ' + ff; ctx.fillStyle = '#333';
+    ctx.fillText('負責人：蘇祺傑', m, y + 30);
+    ctx.fillText('電話：0910-930617', m, y + 30 + partyLineH);
+    ctx.fillText('Email：newjacktw@yahoo.com.tw', m, y + 30 + partyLineH * 2);
+    ctx.fillText('統一編號：95294201', m, y + 30 + partyLineH * 3);
+
+    // 垂直漸層分隔線
+    var divX = m + halfW + 10;
+    var partyTotalH = 30 + partyLineH * 4;
+    var grad = ctx.createLinearGradient(0, y, 0, y + partyTotalH);
+    grad.addColorStop(0, 'rgba(200,92,62,0)');
+    grad.addColorStop(0.2, 'rgba(200,92,62,0.4)');
+    grad.addColorStop(0.5, 'rgba(200,92,62,0.55)');
+    grad.addColorStop(0.8, 'rgba(200,92,62,0.4)');
+    grad.addColorStop(1, 'rgba(200,92,62,0)');
+    ctx.strokeStyle = grad; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(divX, y); ctx.lineTo(divX, y + partyTotalH); ctx.stroke();
+
+    // 右：委託方
+    var rx = divX + 16;
+    var contactVal = document.getElementById('clientContact').value || '';
+    var contactLabel = contactVal ? (contactVal.indexOf('設計') !== -1 ? '設計師：' : '負責人：') : '';
+    ctx.font = 'bold 11px ' + ff; ctx.fillStyle = DARK; ctx.textAlign = 'left';
+    ctx.fillText('委託方資訊', rx, y + 12);
+    ctx.fillStyle = '#aaa'; ctx.fillRect(rx, y + 15, 36, 1.5);
+    ctx.font = '11px ' + ff; ctx.fillStyle = '#333';
+    ctx.fillText('委託方：' + (document.getElementById('clientName').value || '—'), rx, y + 30);
+    if (contactVal) ctx.fillText(contactLabel + contactVal, rx, y + 30 + partyLineH);
+    ctx.fillText('電話：' + (document.getElementById('clientPhone').value || '—'), rx, y + 30 + partyLineH * 2);
+    ctx.fillText('施工地址：' + (document.getElementById('clientAddress').value || '—'), rx, y + 30 + partyLineH * 3);
+
+    y = y + partyTotalH + blockGap + 8;
+
+    // ── 施工項目表格 ──
+    var works = collectData();
+    var C = {
+      name:  m,
+      qty:   m + Math.floor(cw * 0.50),
+      unit:  m + Math.floor(cw * 0.62),
+      price: m + Math.floor(cw * 0.73),
+      total: m + Math.floor(cw * 0.86)
+    };
+    var hdrH = 26, rowH = 26;
+    var ROW_BG = '#f7f7f7', REMARK_BG = '#ececec';
+
+    for (var wi = 0; wi < works.length; wi++) {
+      var w = works[wi];
+
+      // 位置標題列（含欄位標題）
+      ctx.fillStyle = w.color; ctx.fillRect(m, y, cw, hdrH);
+      ctx.font = 'bold 12px ' + ff; ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
+      ctx.fillText(w.location || ('施工位置 ' + (wi + 1)), m + 10, y + hdrH / 2 + 4);
+      ctx.font = '10px ' + ff; ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.textAlign = 'right';
+      ctx.fillText('數量', C.qty + 46, y + hdrH / 2 + 4);
+      ctx.fillText('單位', C.unit + 46, y + hdrH / 2 + 4);
+      ctx.fillText('單價', C.price + 60, y + hdrH / 2 + 4);
+      ctx.fillText('小計', PW - m - 4, y + hdrH / 2 + 4);
+      y += hdrH;
+
+      for (var ii = 0; ii < w.items.length; ii++) {
+        var item = w.items[ii];
+
+        // 施工內容列
+        ctx.fillStyle = ROW_BG; ctx.fillRect(m, y, cw, rowH);
+        ctx.font = '12px ' + ff; ctx.fillStyle = '#333'; ctx.textAlign = 'left';
+        ctx.fillText(item.name || '—', C.name + 8, y + rowH / 2 + 4);
+        ctx.textAlign = 'right';
+        ctx.fillText(item.qty > 0 ? String(item.qty) : '—', C.qty + 46, y + rowH / 2 + 4);
+        ctx.fillText(item.unit || '—', C.unit + 46, y + rowH / 2 + 4);
+        ctx.fillText(item.price > 0 ? '$' + Math.round(item.price).toLocaleString() : '—', C.price + 60, y + rowH / 2 + 4);
+        ctx.font = 'bold 12px ' + ff; ctx.fillStyle = BRAND;
+        ctx.fillText(item.total > 0 ? '$' + Math.round(item.total).toLocaleString() : '—', PW - m - 4, y + rowH / 2 + 4);
+        y += rowH;
+
+        // 備註列
+        if (item.remark) {
+          var remarkLines = wrapText(ctx, item.remark, cw - 52, '10px ' + ff);
+          var rH = remarkLines.length * 14 + 10;
+          ctx.fillStyle = REMARK_BG; ctx.fillRect(m, y, cw, rH);
+          ctx.strokeStyle = '#e8d8d4'; ctx.lineWidth = 0.3; ctx.strokeRect(m, y, cw, rH);
+          ctx.font = '10px ' + ff; ctx.fillStyle = '#888'; ctx.textAlign = 'left';
+          ctx.fillText('備註：', m + 8, y + 12);
+          remarkLines.forEach(function(line, li) { ctx.fillText(line, m + 42, y + 12 + li * 14); });
+          y += rH;
+        }
+      }
+
+      if (w.items.length === 0) {
+        ctx.fillStyle = ROW_BG; ctx.fillRect(m, y, cw, rowH);
+        ctx.font = '11px ' + ff; ctx.fillStyle = '#ccc'; ctx.textAlign = 'left';
+        ctx.fillText('（尚未新增施工內容）', m + 10, y + rowH / 2 + 4);
+        y += rowH;
+      }
+
+      // 位置小計
+      ctx.fillStyle = '#e8e8e8'; ctx.fillRect(m, y, cw, 22);
+      ctx.strokeStyle = '#edd8d2'; ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.moveTo(m, y); ctx.lineTo(PW - m, y); ctx.stroke();
+      ctx.font = '11px ' + ff; ctx.fillStyle = '#999'; ctx.textAlign = 'right';
+      ctx.fillText('小計：', PW - m - 90, y + 15);
+      ctx.font = 'bold 12px ' + ff; ctx.fillStyle = BRAND;
+      ctx.fillText('$' + Math.round(w.workTotal).toLocaleString(), PW - m - 4, y + 15);
+      y += 22 + 8;
+    }
+
+    // ── 合計區塊 ──
+    y += 6;
+    var sub = 0;
+    works.forEach(function(w) { sub += w.workTotal; });
+    var tax = Math.round(sub * 0.05);
+    var disc = parseFloat(document.getElementById('discount').value) || 0;
+    var grand = sub + tax - disc;
+    var deposit = Math.round(grand * 0.3);
+
+    // ── 付款方式（左欄，無框，只有左色條） ──
+    var payLines = [
+      { t: '工程款支付時程', b: true, c: DARK },
+      { t: '第一期款（30%）：簽約暨開工前支付。', b: false, c: '#444' },
+      { t: '第二期款（30%）：完工50%、套批土完成時支付。', b: false, c: '#444' },
+      { t: '第三期款（30%）：完工100%、油漆施作完成時支付。', b: false, c: '#444' },
+      { t: '第四期款（10%）：驗收合格後 3 日內支付。', b: false, c: '#444' },
+      { t: '', b: false, c: '#444' },
+      { t: '指定帳戶', b: true, c: DARK },
+      { t: '中國信託－大里分行　蘇祺傑', b: false, c: '#555' },
+      { t: '銀行代號：822　帳號：056540466093', b: false, c: '#555' },
+    ];
+    var lh2 = 17, pad = 8;
+    var payLinesH = payLines.length * lh2 + pad * 2;
+
+    // 依文字實際寬度動態調整左欄寬度，右欄等比縮短
+    var maxLineW = 0;
+    payLines.forEach(function(line) {
+      if (!line.t) return;
+      ctx.font = (line.b ? 'bold 13px ' : '12px ') + ff;
+      var w2 = ctx.measureText(line.t).width;
+      if (w2 > maxLineW) maxLineW = w2;
+    });
+    var neededLw2 = Math.ceil(maxLineW) + 12 + 14; // 左邊留白12 + 右邊留白14
+    var minLw2 = Math.floor(cw * 0.50);
+    var maxLw2 = Math.floor(cw * 0.66); // 右欄至少保留 34% 寬度
+    var lw2 = Math.min(Math.max(neededLw2, minLw2), maxLw2);
+    var rx2 = m + lw2 + 14;
+    var rcw = PW - m - rx2;
+
+    // ── 右欄：小計、稅額、優惠（純文字，無底色框） ──
+    var summaryRowH = 22;
+    var summaryRows = [
+      { l: '小計', v: '$' + Math.round(sub).toLocaleString(), c: '#555' },
+      { l: '稅額 (5%)', v: '$' + tax.toLocaleString(), c: '#888' },
+      { l: '施工優惠', v: disc > 0 ? '－$' + Math.round(disc).toLocaleString() : '—', c: '#c85c3e' },
+    ];
+    var grandH = 30;
+    var depositH = 48;
+    var rightColH = summaryRows.length * summaryRowH + 8 + grandH + 12 + depositH;
+    var payH = Math.max(payLinesH, rightColH);
+
+    // 左欄：淡底 + 左色條
+    ctx.fillStyle = '#faf7f5';
+    ctx.fillRect(m, y, lw2, payH);
+    ctx.fillStyle = BRAND; ctx.fillRect(m, y, 3, payH);
+    payLines.forEach(function(line, i) {
+      if (!line.t) return;
+      ctx.font = (line.b ? 'bold 13px ' : '12px ') + ff;
+      ctx.fillStyle = line.c; ctx.textAlign = 'left';
+      ctx.fillText(line.t, m + 12, y + pad + i * lh2 + 13);
+    });
+
+    // 右欄：純文字行（label 靠左，value 靠右，下底線分隔）
+    var sy = y + 6;
+    summaryRows.forEach(function(row) {
+      ctx.font = '13px ' + ff; ctx.fillStyle = '#777'; ctx.textAlign = 'left';
+      ctx.fillText(row.l, rx2, sy + summaryRowH / 2 + 4);
+      ctx.fillStyle = row.c; ctx.textAlign = 'right';
+      ctx.fillText(row.v, PW - m, sy + summaryRowH / 2 + 4);
+      // 底部細線
+      ctx.strokeStyle = '#e8e8e8'; ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.moveTo(rx2, sy + summaryRowH); ctx.lineTo(PW - m, sy + summaryRowH); ctx.stroke();
+      sy += summaryRowH;
+    });
+
+    // 合計（粗字，下方粗線，無框）
+    sy += 8;
+    ctx.font = 'bold 15px ' + ff; ctx.fillStyle = BRAND; ctx.textAlign = 'left';
+    ctx.fillText('合計', rx2, sy + grandH / 2 + 5);
+    ctx.font = 'bold 18px ' + ff; ctx.textAlign = 'right';
+    ctx.fillText('$' + Math.round(grand).toLocaleString(), PW - m, sy + grandH / 2 + 6);
+    ctx.strokeStyle = BRAND; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(rx2, sy + grandH + 2); ctx.lineTo(PW - m, sy + grandH + 2); ctx.stroke();
+    sy += grandH + 12;
+
+    // 預付工程款框（唯一保留框線）
+    ctx.fillStyle = '#fff5f2'; ctx.fillRect(rx2, sy, rcw, depositH);
+    ctx.strokeStyle = BRAND; ctx.lineWidth = 1.2; ctx.strokeRect(rx2, sy, rcw, depositH);
+    ctx.font = '11px ' + ff; ctx.fillStyle = '#aaa'; ctx.textAlign = 'left';
+    ctx.fillText('預付工程款（30%）', rx2 + 10, sy + 16);
+    ctx.font = 'bold 19px ' + ff; ctx.fillStyle = BRAND; ctx.textAlign = 'right';
+    ctx.fillText('$' + deposit.toLocaleString(), PW - m - 10, sy + 40);
+
+    // ── 簽名欄（無外框，只有底線 + 標籤） ──
+    var sigTop = y + payH + 22;
+    var sigW = Math.floor((cw - 20) / 2);
+    var sigH = 70;
+
+    function drawSigBox(sx, label, subLabel) {
+      ctx.font = 'bold 13px ' + ff; ctx.fillStyle = '#555'; ctx.textAlign = 'left';
+      ctx.fillText(label, sx, sigTop + 16);
+      ctx.strokeStyle = '#bbb'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(sx, sigTop + 52); ctx.lineTo(sx + sigW, sigTop + 52); ctx.stroke();
+      ctx.font = '11px ' + ff; ctx.fillStyle = '#bbb';
+      ctx.fillText(subLabel, sx, sigTop + 64);
+    }
+    drawSigBox(m, '承攬方', '蘇祺傑');
+    drawSigBox(m + sigW + 20, '委託方', '簽名／蓋章');
+
+    // 中華民國年月日（置中，「中　華　民　國」字距加寬）
+    var rocY = sigTop + sigH + 20;
+    ctx.font = '13px ' + ff; ctx.fillStyle = '#666';
+    var rocLabel = '中　華　民　國';
+    var rocTail  = '　　　　　　年　　　　月　　　　日';
+    var totalW2 = ctx.measureText(rocLabel + rocTail).width;
+    ctx.textAlign = 'left';
+    ctx.fillText(rocLabel + rocTail, PW / 2 - totalW2 / 2, rocY);
+
+    // ── 浮水印（先畫到 canvas 底層） ──
+    // 因為 file:// 無法 fetch，改用 Image src 直接載入（和 logo 同方式）
+    // 浮水印在 drawPDF 呼叫前已嘗試載入，傳入 wmImgRef
+    function applyWatermark(wmImgRef) {
+      if (!wmImgRef) return;
+      ctx.save();
+      ctx.globalAlpha = 1.0;
+      ctx.globalCompositeOperation = 'destination-over';
+      ctx.drawImage(wmImgRef, 0, 0, PW, PH);
+      ctx.restore();
+    }
+
+    // ── 輸出最終 PDF ──
+    function deliverPDF(termsBytes) {
+      var jsPDFObj = window.jspdf ? window.jspdf.jsPDF : null;
+      if (!jsPDFObj) {
+        if (!isPreview) { msg.className = 'status-msg error'; msg.textContent = '❌ jsPDF 尚未載入'; btn.disabled = false; }
+        return;
+      }
+      var doc = new jsPDFObj({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      doc.addImage(canvas.toDataURL('image/png', 1.0), 'PNG', 0, 0, 210, 297);
+      var mainBytes = doc.output('arraybuffer');
+
+      function deliverBlob(finalBytes) {
+        var blob = new Blob([finalBytes], { type: 'application/pdf' });
+        var url = URL.createObjectURL(blob);
+        if (isPreview) {
+          document.getElementById('pdfPreviewer').src = url + '#toolbar=0&navpanes=0';
+          if (lastPreviewObjectURL) URL.revokeObjectURL(lastPreviewObjectURL);
+          lastPreviewObjectURL = url;
+        } else {
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = (document.getElementById('quoteDate').value || 'quote') + '_傑出油漆估價單.pdf';
+          a.click(); URL.revokeObjectURL(url);
+          msg.className = 'status-msg success'; msg.textContent = '✅ 估價單 PDF 已產生完成';
+          btn.disabled = false;
+        }
+      }
+
+      if (termsBytes && window.PDFLib) {
+        Promise.all([
+          window.PDFLib.PDFDocument.load(mainBytes),
+          window.PDFLib.PDFDocument.load(termsBytes)
+        ]).then(function(docs) {
+          var mainDoc = docs[0], termsDoc = docs[1];
+          return termsDoc.copyPages(termsDoc, termsDoc.getPageIndices()).then(function(pages) {
+            pages.forEach(function(p) { mainDoc.addPage(p); });
+            return mainDoc.save();
+          });
+        }).then(function(merged) {
+          deliverBlob(merged);
+        }).catch(function() { deliverBlob(mainBytes); });
+      } else {
+        deliverBlob(mainBytes);
+      }
+    }
+
+    // 先套浮水印，再載入 terms（用 termsBytesCache）
+    applyWatermark(wmImgRef);
+    deliverPDF(window._termsBytesCache || null);
+  } // end drawPDF
+
+  var logoImg = new Image();
+  logoImg.onload = function() { drawPDF(logoImg); };
+  logoImg.onerror = function() { drawPDF(null); };
+  logoImg.src = '傑出油漆_logo.png';
+}
+
+function wrapText(ctx, text, maxWidth, font) {
+  ctx.font = font;
+  var lines = [];
+  text.split('\n').forEach(function(para) {
+    var chars = para.split('');
+    var line = '';
+    chars.forEach(function(ch) {
+      var test = line + ch;
+      if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = ch; }
+      else { line = test; }
+    });
+    if (line) lines.push(line);
+  });
+  return lines.length ? lines : [''];
+}
+</script>
+</body>
+</html>
