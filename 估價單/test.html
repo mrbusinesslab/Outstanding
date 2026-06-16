@@ -177,8 +177,7 @@ input:focus, textarea:focus { outline: none; border-color: #c85c3e; background: 
 
 <header>
   <div class="header-logo-wrap">
-    <img src="傑出油漆_logo.png" alt="傑出油漆" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-    <span class="header-logo-fallback" style="display:none">傑出油漆工程行</span>
+    <span class="header-logo-fallback">傑出油漆工程行</span>
   </div>
   <div class="header-title">傑出油漆工程行｜估價單產生器</div>
 </header>
@@ -255,7 +254,7 @@ input:focus, textarea:focus { outline: none; border-color: #c85c3e; background: 
     </div>
 
     <div class="card">
-      <div class="card-title">💳 付款方式與條款</div>
+      <div class="card-title">💳 工程款支付時程</div>
       <div class="payment-block">
         <p>第一期款（30%）：簽約暨開工前支付。</p>
         <p>第二期款（30%）：完工50%、套批土完成時支付。</p>
@@ -778,7 +777,7 @@ async function generatePDF(isPreview) {
 
     // 付款方式（左欄）
     var payLines = [
-      { t: '付款方式', b: true, c: DARK },
+      { t: '工程款支付時程', b: true, c: DARK },
       { t: '第一期款（30%）：簽約暨開工前支付', b: false, c: '#444' },
       { t: '第二期款（30%）：完工50%、套批土完成時支付', b: false, c: '#444' },
       { t: '第三期款（30%）：完工100%、油漆施作完成時支付', b: false, c: '#444' },
@@ -835,10 +834,10 @@ async function generatePDF(isPreview) {
     var boxW = Math.floor((cw - boxGap * 3) / 4);
     var boxH = 68;
     var payBoxes = [
-      { label: '預付工程款（30%）', amount: '$' + deposit.toLocaleString(), highlight: true },
-      { label: '批土完成時（30%）', amount: '$' + Math.round(grand * 0.3).toLocaleString(), highlight: false },
-      { label: '工程完成時（30%）', amount: '$' + Math.round(grand * 0.3).toLocaleString(), highlight: false },
-      { label: '驗收合格後（10%）', amount: '$' + Math.round(grand * 0.1).toLocaleString(), highlight: false },
+      { label: '第一期款（30%）', amount: '$' + deposit.toLocaleString(), highlight: true },
+      { label: '第二期款（30%）', amount: '$' + Math.round(grand * 0.3).toLocaleString(), highlight: false },
+      { label: '第三期款（30%）', amount: '$' + Math.round(grand * 0.3).toLocaleString(), highlight: false },
+      { label: '第四期款（10%）', amount: '$' + Math.round(grand * 0.1).toLocaleString(), highlight: false },
     ];
     payBoxes.forEach(function(box, i) {
       var bx = m + i * (boxW + boxGap);
@@ -859,7 +858,28 @@ async function generatePDF(isPreview) {
       ctx.fillText(box.amount, bx + boxW / 2, y + 52);
     });
 
-    y = y + boxH + 44;
+    
+    // ── 收款紀錄 ──
+    var receiptY = y + boxH + 12;
+    ctx.fillStyle = '#f8f8f8';
+    ctx.fillRect(m, receiptY, cw, 85);
+    ctx.strokeStyle = '#d9d9d9';
+    ctx.strokeRect(m, receiptY, cw, 85);
+
+    ctx.font = 'bold 12px ' + ff;
+    ctx.fillStyle = DARK;
+    ctx.textAlign = 'left';
+    ctx.fillText('工程款收款紀錄', m + 10, receiptY + 18);
+
+    ctx.font = '11px ' + ff;
+    ctx.fillStyle = '#555';
+    ctx.fillText('第一期款：收款日期 __________　付款方式 □現金 □匯款（末五碼：_____）', m + 10, receiptY + 36);
+    ctx.fillText('第二期款：收款日期 __________　付款方式 □現金 □匯款（末五碼：_____）', m + 10, receiptY + 52);
+    ctx.fillText('第三期款：收款日期 __________　付款方式 □現金 □匯款（末五碼：_____）', m + 10, receiptY + 68);
+    ctx.fillText('第四期款：收款日期 __________　付款方式 □現金 □匯款（末五碼：_____）', m + 10, receiptY + 84);
+
+    y = receiptY + 110;
+
 
     // ── 簽名欄 ──
     var sigW = Math.floor((cw - 30) / 2);
