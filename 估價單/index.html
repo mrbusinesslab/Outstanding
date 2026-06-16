@@ -607,38 +607,50 @@ function collectData() {
 }
 
 // ── PDF 產生（排版照參考檔案） ──
-function generatePDF(isPreview) {
+// ── PDF 產生 ──
+async function generatePDF(isPreview) {
   if (isPreview === undefined) isPreview = false;
   var btn = document.getElementById('generateBtn');
   var msg = document.getElementById('statusMsg');
   if (!isPreview) { btn.disabled = true; msg.className = 'status-msg'; msg.textContent = '正在產生估價單...'; }
 
-  var SCALE = 3, PW = 794, PH = 1123;
-  var canvas = document.createElement('canvas');
-  canvas.width = PW * SCALE; canvas.height = PH * SCALE;
-  var ctx = canvas.getContext('2d');
-  ctx.scale(SCALE, SCALE);
-  var m = 42, cw = PW - m * 2;
-  var ff = '"Microsoft JhengHei","微軟正黑體","PingFang TC",Arial,sans-serif';
-  var BRAND = '#c85c3e', DARK = '#3d3d3d';
+  try {
+    var SCALE = 3, PW = 794, PH = 1123;
+    var canvas = document.createElement('canvas');
+    canvas.width = PW * SCALE; canvas.height = PH * SCALE;
+    var ctx = canvas.getContext('2d');
+    ctx.scale(SCALE, SCALE);
+    var m = 42, cw = PW - m * 2;
+    var ff = '"Microsoft JhengHei","微軟正黑體","PingFang TC",Arial,sans-serif';
+    var BRAND = '#c85c3e', DARK = '#3d3d3d';
 
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, PW, PH);
+    // ── 白底 ──
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, PW, PH);
 
-  var lineH = 20, blockGap = 14;
-  var logoH = 40, logoW = Math.round(logoH * 3.5);
-  var headerY = m + logoH;
+    // ── 浮水印（最底層，先畫）──
+    try {
+      var wm = new Image();
+      await new Promise(function(res, rej) { wm.onload = res; wm.onerror = rej; wm.src = '浮水印.png'; });
+      ctx.drawImage(wm, 0, 0, PW, PH);
+    } catch(e) {}
 
-  function drawPDF(logoImg, wmImgRef) {
-    // ── 大標題 ──
-    ctx.font = 'bold 28px ' + ff; ctx.fillStyle = DARK; ctx.textAlign = 'left';
-    ctx.fillText('施工估價單', m, headerY - 6);
+    var blockGap = 14;
+    var logoH = 40, logoW = Math.round(logoH * 3.5);
+    var headerY = m + logoH;
 
-    if (logoImg) {
-      ctx.drawImage(logoImg, PW - m - logoW, headerY - logoH, logoW, logoH);
-    } else {
+    // ── Logo ──
+    try {
+      var logo = new Image();
+      await new Promise(function(res, rej) { logo.onload = res; logo.onerror = rej; logo.src = '傑出油漆_logo.png'; });
+      ctx.drawImage(logo, PW - m - logoW, headerY - logoH, logoW, logoH);
+    } catch(e) {
       ctx.font = 'bold 13px ' + ff; ctx.fillStyle = BRAND; ctx.textAlign = 'right';
       ctx.fillText('傑出油漆工程行', PW - m, headerY - 6);
     }
+
+    // ── 大標題 ──
+    ctx.font = 'bold 28px ' + ff; ctx.fillStyle = DARK; ctx.textAlign = 'left';
+    ctx.fillText('施工估價單', m, headerY - 6);
 
     // 分隔線
     ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1;
@@ -646,17 +658,15 @@ function generatePDF(isPreview) {
 
     var y = headerY + blockGap;
 
-    // 日期資訊 — 緊靠分隔線下方，靠右
+    // 日期
     ctx.font = '12px ' + ff; ctx.fillStyle = '#888'; ctx.textAlign = 'right';
     ctx.fillText('估價單日期：' + (document.getElementById('quoteDate').value || '—') + '　　估價單失效日：' + (document.getElementById('expireDate').value || '—'), PW - m, y);
-
     y += 12;
 
-    // ── 承攬方 ＋ 委託方左右並排 ──
+    // ── 承攬方 ＋ 委託方並排 ──
     var halfW = Math.floor(cw / 2) - 10;
     var partyLineH = 19;
 
-    // 左：承攬方
     ctx.font = 'bold 13px ' + ff; ctx.fillStyle = BRAND; ctx.textAlign = 'left';
     ctx.fillText('承攬方資訊', m, y + 14);
     ctx.fillStyle = BRAND; ctx.fillRect(m, y + 18, 42, 1.5);
@@ -666,7 +676,6 @@ function generatePDF(isPreview) {
     ctx.fillText('Email：newjacktw@yahoo.com.tw', m, y + 34 + partyLineH * 2);
     ctx.fillText('統一編號：95294201', m, y + 34 + partyLineH * 3);
 
-    // 垂直漸層分隔線
     var divX = m + halfW + 10;
     var partyTotalH = 34 + partyLineH * 4;
     var grad = ctx.createLinearGradient(0, y, 0, y + partyTotalH);
@@ -678,7 +687,6 @@ function generatePDF(isPreview) {
     ctx.strokeStyle = grad; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(divX, y); ctx.lineTo(divX, y + partyTotalH); ctx.stroke();
 
-    // 右：委託方
     var rx = divX + 16;
     var contactVal = document.getElementById('clientContact').value || '';
     var contactLabel = contactVal ? (contactVal.indexOf('設計') !== -1 ? '設計師：' : '負責人：') : '';
@@ -707,8 +715,6 @@ function generatePDF(isPreview) {
 
     for (var wi = 0; wi < works.length; wi++) {
       var w = works[wi];
-
-      // 位置標題列
       ctx.fillStyle = w.color; ctx.fillRect(m, y, cw, hdrH);
       ctx.font = 'bold 13px ' + ff; ctx.fillStyle = '#fff'; ctx.textAlign = 'left';
       ctx.fillText(w.location || ('施工位置 ' + (wi + 1)), m + 10, y + hdrH / 2 + 5);
@@ -721,8 +727,6 @@ function generatePDF(isPreview) {
 
       for (var ii = 0; ii < w.items.length; ii++) {
         var item = w.items[ii];
-
-        // 施工內容列
         ctx.fillStyle = ROW_BG; ctx.fillRect(m, y, cw, rowH);
         ctx.font = '13px ' + ff; ctx.fillStyle = '#333'; ctx.textAlign = 'left';
         ctx.fillText(item.name || '—', C.name + 8, y + rowH / 2 + 5);
@@ -734,7 +738,6 @@ function generatePDF(isPreview) {
         ctx.fillText(item.total > 0 ? '$' + Math.round(item.total).toLocaleString() : '—', PW - m - 4, y + rowH / 2 + 5);
         y += rowH;
 
-        // 備註列
         if (item.remark) {
           var remarkLines = wrapText(ctx, item.remark, cw - 52, '12px ' + ff);
           var rH = remarkLines.length * 16 + 12;
@@ -753,10 +756,7 @@ function generatePDF(isPreview) {
         y += rowH;
       }
 
-      // 位置小計
       ctx.fillStyle = '#e8e8e8'; ctx.fillRect(m, y, cw, 24);
-      ctx.strokeStyle = '#edd8d2'; ctx.lineWidth = 0.5;
-      ctx.beginPath(); ctx.moveTo(m, y); ctx.lineTo(PW - m, y); ctx.stroke();
       ctx.font = '12px ' + ff; ctx.fillStyle = '#999'; ctx.textAlign = 'right';
       ctx.fillText('小計：', PW - m - 90, y + 16);
       ctx.font = 'bold 13px ' + ff; ctx.fillStyle = BRAND;
@@ -767,7 +767,7 @@ function generatePDF(isPreview) {
     // ── 合計區塊 ──
     y += 10;
     var sub = 0;
-    works.forEach(function(w) { sub += w.workTotal; });
+    works.forEach(function(wk) { sub += wk.workTotal; });
     var tax = Math.round(sub * 0.05);
     var disc = parseFloat(document.getElementById('discount').value) || 0;
     var grand = sub + tax - disc;
@@ -775,9 +775,8 @@ function generatePDF(isPreview) {
 
     var lw2 = Math.floor(cw * 0.50);
     var rx2 = m + lw2 + 14;
-    var rcw = PW - m - rx2;
 
-    // ── 付款方式（左欄，無框，左色條） ──
+    // 付款方式（左欄）
     var payLines = [
       { t: '付款方式', b: true, c: DARK },
       { t: '① 簽約及開工前：工程總價 30%', b: false, c: '#444' },
@@ -792,7 +791,6 @@ function generatePDF(isPreview) {
     var lh2 = 19, pad = 10;
     var payLinesH = payLines.length * lh2 + pad * 2;
 
-    // 右欄高度計算（必須和左欄等高）
     var summaryRowH = 26;
     var summaryRows = [
       { l: '小計', v: '$' + Math.round(sub).toLocaleString(), c: '#555' },
@@ -800,12 +798,10 @@ function generatePDF(isPreview) {
       { l: '施工優惠', v: disc > 0 ? '－$' + Math.round(disc).toLocaleString() : '—', c: '#c85c3e' },
     ];
     var grandH = 36;
-    var depositH = 52;
-    var rightColH = summaryRows.length * summaryRowH + 14 + grandH + 16 + depositH;
+    var rightColH = summaryRows.length * summaryRowH + 14 + grandH + 8;
     var payH = Math.max(payLinesH, rightColH);
-    // 讓左欄也撐到同樣高度（已自動，因為 payH = max(兩者)）
 
-    // 左欄：淡底 + 左色條，無外框，撐滿 payH
+    // 左欄
     ctx.fillStyle = '#faf7f5'; ctx.fillRect(m, y, lw2, payH);
     ctx.fillStyle = BRAND; ctx.fillRect(m, y, 3, payH);
     payLines.forEach(function(line, i) {
@@ -815,147 +811,119 @@ function generatePDF(isPreview) {
       ctx.fillText(line.t, m + 14, y + pad + i * lh2 + 14);
     });
 
-    // 右欄：純文字，細分隔線
+    // 右欄
     var sy = y + 8;
     summaryRows.forEach(function(row) {
       ctx.font = '13px ' + ff; ctx.fillStyle = '#888'; ctx.textAlign = 'left';
       ctx.fillText(row.l, rx2, sy + summaryRowH / 2 + 4);
-      ctx.font = '13px ' + ff; ctx.fillStyle = row.c; ctx.textAlign = 'right';
+      ctx.fillStyle = row.c; ctx.textAlign = 'right';
       ctx.fillText(row.v, PW - m, sy + summaryRowH / 2 + 4);
       ctx.strokeStyle = '#ebebeb'; ctx.lineWidth = 0.5;
       ctx.beginPath(); ctx.moveTo(rx2, sy + summaryRowH); ctx.lineTo(PW - m, sy + summaryRowH); ctx.stroke();
       sy += summaryRowH;
     });
-
-    // 合計（無框，無橫線，粗字）
     sy += 14;
     ctx.font = 'bold 16px ' + ff; ctx.fillStyle = BRAND; ctx.textAlign = 'left';
     ctx.fillText('合計', rx2, sy + grandH / 2 + 5);
     ctx.font = 'bold 20px ' + ff; ctx.textAlign = 'right';
     ctx.fillText('$' + Math.round(grand).toLocaleString(), PW - m, sy + grandH / 2 + 6);
-    sy += grandH + 16;
 
-    // 預付工程款（框線，固定在右欄底部對齊）
-    // sy 現在正好是 depositH 前，不超出 payH
-    ctx.fillStyle = '#fff5f2'; ctx.fillRect(rx2, sy, rcw, depositH);
-    ctx.strokeStyle = BRAND; ctx.lineWidth = 1.2; ctx.strokeRect(rx2, sy, rcw, depositH);
-    ctx.font = '12px ' + ff; ctx.fillStyle = '#aaa'; ctx.textAlign = 'left';
-    ctx.fillText('預付工程款（30%）', rx2 + 12, sy + 18);
-    ctx.font = 'bold 20px ' + ff; ctx.fillStyle = BRAND; ctx.textAlign = 'right';
-    ctx.fillText('$' + deposit.toLocaleString(), PW - m - 10, sy + 43);
+    y = y + payH + 20;
 
-    // ── 簽名欄（無框，只有底線，距離拉大） ──
-    var sigTop = y + payH + 48;
+    // ── 四格付款金額區塊 ──
+    var boxGap = 8;
+    var boxW = Math.floor((cw - boxGap * 3) / 4);
+    var boxH = 68;
+    var payBoxes = [
+      { label: '預付工程款（30%）', amount: '$' + deposit.toLocaleString(), highlight: true },
+      { label: '批土完成時（30%）', amount: '$' + Math.round(grand * 0.3).toLocaleString(), highlight: false },
+      { label: '工程完成時（30%）', amount: '$' + Math.round(grand * 0.3).toLocaleString(), highlight: false },
+      { label: '驗收合格後（10%）', amount: '$' + Math.round(grand * 0.1).toLocaleString(), highlight: false },
+    ];
+    payBoxes.forEach(function(box, i) {
+      var bx = m + i * (boxW + boxGap);
+      if (box.highlight) {
+        ctx.fillStyle = '#fff5f2';
+        ctx.strokeStyle = BRAND; ctx.lineWidth = 1.5;
+      } else {
+        ctx.fillStyle = '#f5f5f5';
+        ctx.strokeStyle = '#d0d0d0'; ctx.lineWidth = 1;
+      }
+      ctx.fillRect(bx, y, boxW, boxH);
+      ctx.strokeRect(bx, y, boxW, boxH);
+      ctx.font = '11px ' + ff; ctx.textAlign = 'center';
+      ctx.fillStyle = box.highlight ? '#c85c3e' : '#bbb';
+      ctx.fillText(box.label, bx + boxW / 2, y + 20);
+      ctx.font = 'bold 17px ' + ff;
+      ctx.fillStyle = box.highlight ? BRAND : '#aaa';
+      ctx.fillText(box.amount, bx + boxW / 2, y + 52);
+    });
+
+    y = y + boxH + 44;
+
+    // ── 簽名欄 ──
     var sigW = Math.floor((cw - 30) / 2);
-
     function drawSigLine(sx, label, hint) {
       ctx.font = 'bold 13px ' + ff; ctx.fillStyle = '#444'; ctx.textAlign = 'left';
-      ctx.fillText(label, sx, sigTop + 18);
+      ctx.fillText(label, sx, y + 18);
       ctx.strokeStyle = '#bbb'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(sx, sigTop + 58); ctx.lineTo(sx + sigW, sigTop + 58); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sx, y + 58); ctx.lineTo(sx + sigW, y + 58); ctx.stroke();
       ctx.font = '11px ' + ff; ctx.fillStyle = '#ccc';
-      ctx.fillText(hint, sx, sigTop + 70);
+      ctx.fillText(hint, sx, y + 70);
     }
     drawSigLine(m, '承攬方', '蘇祺傑');
     drawSigLine(m + sigW + 30, '委託方', '簽名／蓋章');
 
-    // ── 中華民國年月日（與簽名拉開 50px） ──
-    var rocY = sigTop + 120;
+    // ── 中華民國年月日 ──
+    var rocY = y + 116;
     ctx.font = '13px ' + ff; ctx.fillStyle = '#666'; ctx.textAlign = 'center';
     ctx.fillText('中　華　民　國　　　　　　　　年　　　　　　　　月　　　　　　　　日', PW / 2, rocY);
 
-    // ── 浮水印（底層，全頁鋪滿） ──
-    function applyWatermark(wmImgRef) {
-      if (!wmImgRef) return;
-      ctx.save();
-      ctx.globalAlpha = 1.0;
-      ctx.globalCompositeOperation = 'destination-over';
-      ctx.drawImage(wmImgRef, 0, 0, PW, PH);
-      ctx.restore();
+    // ── 輸出 PDF ──
+    var { jsPDF } = window.jspdf;
+    var doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    doc.addImage(canvas.toDataURL('image/png', 1.0), 'PNG', 0, 0, 210, 297);
+    var quotePdfBytes = doc.output('arraybuffer');
+
+    var finalPdfBytes;
+    try {
+      var resp = await fetch('terms.pdf');
+      if (!resp.ok) throw new Error('not found');
+      var termsBytes = await resp.arrayBuffer();
+      var { PDFDocument } = PDFLib;
+      var merged = await PDFDocument.create();
+      var qpdf = await PDFDocument.load(quotePdfBytes);
+      var tpdf = await PDFDocument.load(termsBytes);
+      (await merged.copyPages(qpdf, qpdf.getPageIndices())).forEach(function(p) { merged.addPage(p); });
+      (await merged.copyPages(tpdf, tpdf.getPageIndices())).forEach(function(p) { merged.addPage(p); });
+      finalPdfBytes = await merged.save();
+      if (!isPreview) { msg.className = 'status-msg success'; msg.textContent = '✅ 估價單已產生（含條款說明）'; }
+    } catch(e) {
+      finalPdfBytes = quotePdfBytes;
+      if (!isPreview) { msg.className = 'status-msg'; msg.textContent = '⚠️ 找不到 terms.pdf，已產生估價單（不含條款說明）'; }
     }
 
-    // ── 輸出最終 PDF ──
-    function deliverPDF(termsBytes) {
-      var jsPDFObj = window.jspdf ? window.jspdf.jsPDF : null;
-      if (!jsPDFObj) {
-        if (!isPreview) { msg.className = 'status-msg error'; msg.textContent = '❌ jsPDF 尚未載入'; btn.disabled = false; }
-        return;
-      }
-      var doc = new jsPDFObj({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-      doc.addImage(canvas.toDataURL('image/png', 1.0), 'PNG', 0, 0, 210, 297);
-      var mainBytes = doc.output('arraybuffer');
-
-      function deliverBlob(finalBytes) {
-        var blob = new Blob([finalBytes], { type: 'application/pdf' });
-        var url = URL.createObjectURL(blob);
-        if (isPreview) {
-          document.getElementById('pdfPreviewer').src = url + '#toolbar=0&navpanes=0';
-          if (lastPreviewObjectURL) URL.revokeObjectURL(lastPreviewObjectURL);
-          lastPreviewObjectURL = url;
-        } else {
-          var a = document.createElement('a');
-          a.href = url;
-          a.download = (document.getElementById('quoteDate').value || 'quote') + '_傑出油漆估價單.pdf';
-          a.click(); URL.revokeObjectURL(url);
-          msg.className = 'status-msg success'; msg.textContent = '✅ 估價單 PDF 已產生完成';
-          btn.disabled = false;
-        }
-      }
-
-      if (termsBytes && window.PDFLib) {
-        Promise.all([
-          window.PDFLib.PDFDocument.load(mainBytes),
-          window.PDFLib.PDFDocument.load(termsBytes)
-        ]).then(function(docs) {
-          var mainDoc = docs[0], termsDoc = docs[1];
-          return termsDoc.copyPages(termsDoc, termsDoc.getPageIndices()).then(function(pages) {
-            pages.forEach(function(p) { mainDoc.addPage(p); });
-            return mainDoc.save();
-          });
-        }).then(function(merged) {
-          deliverBlob(merged);
-        }).catch(function() { deliverBlob(mainBytes); });
-      } else {
-        deliverBlob(mainBytes);
-      }
-    }
-
-    // 先套浮水印，再載入 terms（用 termsBytesCache）
-    applyWatermark(wmImgRef);
-    deliverPDF(window._termsBytesCache || null);
-  } // end drawPDF
-
-  var logoImg = new Image();
-  var wmImg = new Image();
-
-  function startDraw(resolvedLogo, resolvedWm) {
-    if (window._termsBytesCache !== undefined) {
-      drawPDF(resolvedLogo, resolvedWm);
+    var blob = new Blob([finalPdfBytes], { type: 'application/pdf' });
+    var url = URL.createObjectURL(blob);
+    if (isPreview) {
+      document.getElementById('pdfPreviewer').src = url + '#toolbar=0&navpanes=0';
+      if (lastPreviewObjectURL) URL.revokeObjectURL(lastPreviewObjectURL);
+      lastPreviewObjectURL = url;
     } else {
-      fetch('terms.pdf')
-        .then(function(r) {
-          if (!r.ok) throw new Error('not found');
-          return r.arrayBuffer();
-        })
-        .then(function(buf) { window._termsBytesCache = buf; })
-        .catch(function() { window._termsBytesCache = null; })
-        .finally(function() { drawPDF(resolvedLogo, resolvedWm); });
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = (document.getElementById('quoteDate').value || 'quote') + '_傑出油漆估價單.pdf';
+      a.click(); URL.revokeObjectURL(url);
     }
+
+  } catch(err) {
+    if (!isPreview) {
+      msg.className = 'status-msg error'; msg.textContent = '❌ 產生失敗：' + err.message;
+    }
+    console.error(err);
   }
 
-  wmImg.onload = function() {
-    logoImg.onload = function() { startDraw(logoImg, wmImg); };
-    logoImg.onerror = function() { startDraw(null, wmImg); };
-    logoImg.src = '傑出油漆_logo.png';
-  };
-  wmImg.onerror = function() {
-    logoImg.onload = function() { startDraw(logoImg, null); };
-    logoImg.onerror = function() { startDraw(null, null); };
-    logoImg.src = '傑出油漆_logo.png';
-  };
-  // 每次重新生成時清除 terms cache，確保重新讀取
-  window._termsBytesCache = undefined;
-  wmImg.src = '浮水印.png';
+  if (!isPreview) { btn.disabled = false; }
 }
 
 function wrapText(ctx, text, maxWidth, font) {
