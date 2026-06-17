@@ -858,7 +858,27 @@ async function generatePDF(isPreview) {
       ctx.fillText(box.amount, bx + boxW / 2, y + 52);
     });
 
-    y = y + boxH + 44;
+    // ── 每格下方填寫欄：收款日期、現金/匯款、備註 ──
+    var fillH = 84, fillLineGap = 26;
+    var fillTop = y + boxH + 6;
+    payBoxes.forEach(function(box, i) {
+      var bx = m + i * (boxW + boxGap);
+      ctx.fillStyle = '#fafafa';
+      ctx.fillRect(bx, fillTop, boxW, fillH);
+      ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 1;
+      ctx.strokeRect(bx, fillTop, boxW, fillH);
+
+      var fillLabels = ['收款日期：', '支付方式：現金／匯款', '備註：（末五碼）'];
+      fillLabels.forEach(function(lbl, li) {
+        var ly = fillTop + 16 + li * fillLineGap;
+        ctx.font = '10px ' + ff; ctx.fillStyle = '#999'; ctx.textAlign = 'left';
+        ctx.fillText(lbl, bx + 8, ly);
+        ctx.strokeStyle = '#ccc'; ctx.lineWidth = 0.6;
+        ctx.beginPath(); ctx.moveTo(bx + 8, ly + 6); ctx.lineTo(bx + boxW - 8, ly + 6); ctx.stroke();
+      });
+    });
+
+    y = fillTop + fillH + 36;
 
     // ── 簽名欄 ──
     var sigW = Math.floor((cw - 30) / 2);
